@@ -1,63 +1,124 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Dronecode/UX-Design/35d8148a8a0559cd4bcf50bfa2c94614983cce91/QGC/Branding/Deliverables/QGC_RGB_Logo_Horizontal_Positive_PREFERRED/QGC_RGB_Logo_Horizontal_Positive_PREFERRED.svg" alt="QGroundControl Logo" width="500">
-</p>
+# QGroundPixel
 
-<p align="center">
-  <a href="https://github.com/mavlink/QGroundControl/releases"><img src="https://img.shields.io/github/v/release/mavlink/QGroundControl" alt="Latest Release"></a>
-  <a href="https://github.com/mavlink/qgroundcontrol/blob/master/.github/COPYING.md"><img src="https://img.shields.io/github/license/mavlink/QGroundControl" alt="License"></a>
-  <a href="https://github.com/mavlink/QGroundControl/actions/workflows/linux.yml"><img src="https://github.com/mavlink/QGroundControl/actions/workflows/linux.yml/badge.svg" alt="Linux Build"></a>
-  <a href="https://securityscorecards.dev/viewer/?uri=github.com/mavlink/qgroundcontrol"><img src="https://img.shields.io/ossf-scorecard/github.com/mavlink/qgroundcontrol?label=openssf%20scorecard" alt="OpenSSF Scorecard"></a>
-  <a href="https://crowdin.com/project/qgroundcontrol"><img src="https://badges.crowdin.net/qgroundcontrol/localized.svg" alt="Crowdin"></a>
-  <a href="https://discord.com/channels/1022170275984457759/1022185820683255908"><img src="https://img.shields.io/discord/1022170275984457759?logo=discord&logoColor=white&label=Discord" alt="Dronecode Discord"></a>
-  <a href="https://doi.org/10.5281/zenodo.595404"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.595404.svg" alt="DOI"></a>
-</p>
+A [QGroundControl](https://github.com/mavlink/qgroundcontrol) fork tailored for the
+**RadioMaster AX12** (Android 9) that adds **native OpenIPC / WFB‑NG digital FPV video
+reception** and connection to the transmitter's **internal radio over serial** — while
+keeping the full QGroundControl feature set.
 
-**QGroundControl** (QGC) is a Ground Control Station (GCS) for UAVs, providing full flight control
-and mission planning for any *MAVLink-enabled* drone, including *PX4* and *ArduPilot* platforms.
+It turns a single Android app into: a full ground control station **+** a wifibroadcast
+(WFB‑NG) video receiver, so you get live FPV video, telemetry, and mission control in one
+place without a separate goggle/receiver app.
 
-## Features
+---
 
-- **Mission planning** — plan, edit, and fly autonomous waypoint, survey, and structure-scan missions.
-- **Live Fly View** — real-time flight display with map, instruments, and full vehicle telemetry.
-- **Vehicle setup** — guided wizards for sensor calibration, radio, flight modes, and power.
-- **Parameter tuning** — inspect and edit every vehicle parameter through the Fact System.
-- **Video streaming** — GStreamer-based UDP RTP / RTSP video with recording in the Flight Display.
-- **Multi-vehicle** — connect to and monitor multiple vehicles simultaneously.
-- **MAVLink tooling** — built-in MAVLink Inspector, console, and log download/analysis.
-- **Cross-platform** — Windows, macOS, Linux, Android, and iOS from a single codebase.
+## What it does differently from stock QGroundControl
 
-## Download
+Everything below is additive — no standard QGC functionality is removed.
 
-Grab the latest stable build for your platform, or see all assets on the
-[releases page](https://github.com/mavlink/QGroundControl/releases/latest):
+### 1. Native WFB‑NG video reception (OpenIPC ecosystem)
+A vendored, patched copy of PixelPilot's `wfbngrtl8812` module (userspace **RTL8812AU**
+driver *devourer* + **wfb‑ng** RX/FEC/decrypt) runs inside the app and outputs the drone's
+RTP H.264/H.265 stream to `udp://127.0.0.1:5600` — exactly where QGC's GStreamer video
+pipeline already expects it. So QGC "just" plays it as an ordinary UDP video stream, while
+the whole wifibroadcast stack works invisibly as a software modem.
 
-<p align="center">
-  <a href="https://github.com/mavlink/QGroundControl/releases/latest/download/QGroundControl-installer.exe"><img src="https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white" alt="Windows"></a>
-  <a href="https://github.com/mavlink/QGroundControl/releases/latest/download/QGroundControl.dmg"><img src="https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white" alt="macOS"></a>
-  <a href="https://github.com/mavlink/QGroundControl/releases/latest/download/QGroundControl-x86_64.AppImage"><img src="https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black" alt="Linux (AppImage)"></a>
-  <a href="https://github.com/mavlink/QGroundControl/releases/latest/download/QGroundControl.apk"><img src="https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white" alt="Android"></a>
-</p>
+Added on top of QGC:
+- `custom/` build overlay: `QGroundPixelPlugin` (a `QGCCorePlugin`), `WfbngManager`
+  (JNI bridge to the AAR), a **WFB‑NG Video** settings page, and the default `gs.key`.
+- `QGCWfbManager.java` — USB attach/detach + permission flow for the RTL8812AU adapter(s).
+- Video defaults are pre‑set for this use case: source **UDP h.265**, **low‑latency mode**,
+  and **software decoder** (the Android hardware `amcviddec` path renders broken video on
+  the AX12; software decode is verified good).
+- A display‑queue tweak in `GstVideoReceiver` (time‑bounded instead of a 2‑buffer cap) so
+  wfb‑ng's bursty FEC delivery doesn't drop P‑frames.
 
-## Links
+Configure it under **Application Settings → WFB‑NG Video**: Wi‑Fi channel, bandwidth,
+codec, `gs.key` import, TX power, adaptive link, and live link stats.
 
-- [Official Website](http://qgroundcontrol.com)
-- [User Manual](https://docs.qgroundcontrol.com/en/)
-- [Developer Guide](https://dev.qgroundcontrol.com/en/) / [Build Instructions](https://dev.qgroundcontrol.com/en/getting_started/)
-- [Discussion & Support](https://docs.qgroundcontrol.com/en/Support/Support.html)
-- [Dronecode Discord](https://discord.com/channels/1022170275984457759/1022185820683255908)
-- [Security Policy](.github/SECURITY.md)
-- [Code of Conduct](.github/CODE_OF_CONDUCT.md)
-- [License](https://github.com/mavlink/qgroundcontrol/blob/master/.github/COPYING.md)
+### 2. Internal radio over serial (RadioMaster AX12)
+On Android, QGC is switched from its bundled custom serial stack to the native
+**`Qt6::SerialPort`** backend (Qt 6.8+), which can reach the AX12's internal radio module's
+serial port. Gated by the CMake option `QGC_USE_QT_SERIAL_ON_ANDROID` (ON by default).
+Ported from RadioMaster's `RM_AX12_Serial_Port` branch (commit `9993d95`).
 
-## Contributing
+### 3. Fullscreen fix for Android 9 / Qt 6.11
+Current QGC master uses `Qt.ExpandedClientAreaHint` for edge‑to‑edge fullscreen. On
+Android 9 (API 28) with Qt 6.11, Qt then insets the window's content by `SafeArea.margins`
+(the hidden system‑bar areas), leaving unpainted white strips at the top/right of the AX12
+panel. QGroundPixel zeroes the `ApplicationWindow` paddings on Android so the UI paints
+edge to edge. (Root‑caused and verified on an API 28 1280×720 emulator: 36 px top / 72 px
+right → 0 on all edges. This is a stock‑QGC issue, reproduced without any of the changes
+above.)
 
-QGC is open source and welcomes contributions. See [AGENTS.md](AGENTS.md) for build/test/lint
-commands and coding conventions, and [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) for
-architecture patterns and the contribution workflow.
+### 4. Distinct application id
+Built as `org.qgroundpixel.app` so it can be installed alongside a stock QGroundControl.
 
-QGC's interface is translated by the community — help translate it into your language on
-[Crowdin](https://crowdin.com/project/qgroundcontrol).
+---
 
-## Star history
+## Target hardware
 
-[![Star History Chart](https://api.star-history.com/svg?repos=mavlink/qgroundcontrol&type=Date)](https://star-history.com/#mavlink/qgroundcontrol&Date)
+- **RadioMaster AX12** (Android 9 / API 28, arm64) — the primary device.
+- **RTL8812AU** USB Wi‑Fi adapter for wifibroadcast RX.
+- An **OpenIPC** camera/VTX (e.g. RunCam WiFiLink) on the drone.
+
+---
+
+## Building (Android, arm64)
+
+Matches QGC master's toolchain (`.github/build-config.json`):
+
+- **Qt 6.11.1** for Android (`android_arm64_v8a`) **+** a matching host Qt.
+- **Android SDK** platform 36, build‑tools 36, **NDK r27c** (27.2.12479018).
+- **JDK 21**, CMake ≥ 3.25, Ninja.
+- Python with `jinja2` + `defusedxml` (QGC QML page generators).
+
+The `wfbngrtl8812` receive module ships as a prebuilt AAR in
+`custom/android/libs/`. To rebuild it from source, clone
+[OpenIPC/PixelPilot](https://github.com/OpenIPC/PixelPilot) **with submodules** and apply
+the two small patches described in the project history (constructor takes a `Context`; the
+`gs.key` path is passed in from Java instead of being hardcoded), then
+`gradlew :app:wfbngrtl8812:assembleRelease`.
+
+Configure + build (custom build is auto‑detected from the `custom/` directory):
+
+```bash
+export QT_ROOT_DIR=.../Qt/6.11.1/android_arm64_v8a
+export QT_HOST_PATH=.../Qt/6.11.1/<host>
+export ANDROID_NDK=.../ndk/27.2.12479018
+
+cmake --preset Android \
+  -DQGC_ANDROID_PACKAGE_NAME=org.qgroundpixel.app \
+  -DQGC_PACKAGE_NAME=org.qgroundpixel.app
+cmake --build --preset Android
+```
+
+The APK lands in `<build>/Android/android-build/…/*.apk`; sign it with your own key
+(`zipalign` + `apksigner`).
+
+---
+
+## AX12 quick setup
+
+1. Install the APK (Settings → allow unknown sources, or `adb install`).
+2. Plug in the RTL8812AU adapter → allow the USB permission prompt.
+3. Reception starts on the configured channel; video appears in the Fly View.
+4. In **WFB‑NG Video** settings, match the **codec** to your camera (H.265 default — a
+   mismatch shows no video), set the Wi‑Fi **channel/bandwidth**, and import your `gs.key`
+   if you use a non‑default one.
+
+> Disable the OpenIPC camera's audio (majestic.yaml) for now — Opus audio shares UDP 5600
+> and only produces warnings.
+
+---
+
+## Licensing & credits
+
+- **QGroundControl** — Dronecode Project, dual Apache‑2.0 / GPLv3.
+- **wfb‑ng** ([svpcom/wfb-ng](https://github.com/svpcom/wfb-ng)) — **GPLv3**; combining it
+  makes the resulting app GPLv3.
+- **devourer** / **PixelPilot** — [OpenIPC](https://github.com/OpenIPC).
+- Android serial change ported from
+  [RadioMaster‑RC/qgroundcontrol](https://github.com/Radiomaster-RC/qgroundcontrol).
+
+This is an unofficial community fork and is not endorsed by the QGroundControl project,
+RadioMaster, or OpenIPC.

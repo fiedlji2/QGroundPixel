@@ -188,3 +188,27 @@ Qt*-linux*.tar.*
 .tool-versions
 .python-version
 !tools/.python-version
+
+# --- QGroundPixel additions ---
+# QGroundPixel — keep build outputs, local tooling and signing material out of git.
+# (Appended to QGC's own .gitignore.)
+
+# Local build scripts / env captured during development
+/qgp-*.cmd
+/qgp-env.sh
+/CMakePresets.json
+
+# Python venv created by QGC's configure
+/.venv/
+
+# Signing material — NEVER commit
+*.keystore
+*.jks
+*.p12
+
+# Build artefacts
+/build/
+/build-*/
+*.apk
+*.aab
+*.log
