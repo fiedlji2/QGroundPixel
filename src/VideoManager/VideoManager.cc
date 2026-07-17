@@ -875,7 +875,11 @@ void VideoManager::_initVideoReceiver(VideoReceiver *receiver, QQuickWindow *win
     }
     receiver->setSink(sink);
 
-    VideoBackend::attachSink(receiver, sink, widget);
+    // Receivers marking themselves qgpExternalSink push frames directly into
+    // the widget's QVideoSink; the backend attach would misread their handle.
+    if (!receiver->property("qgpExternalSink").toBool()) {
+        VideoBackend::attachSink(receiver, sink, widget);
+    }
 
     (void) connect(receiver, &VideoReceiver::onStartComplete, this, [this, receiver](VideoReceiver::STATUS status) {
         qCDebug(VideoManagerLog) << "Video" << receiver->name() << "Start complete, status:" << status;

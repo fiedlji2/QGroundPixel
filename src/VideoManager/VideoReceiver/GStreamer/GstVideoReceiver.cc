@@ -148,14 +148,20 @@ void GstVideoReceiver::start(uint32_t timeout)
             break;
         }
 
-        // leaky=downstream (2) + tiny depth: the live-display branch must drop the oldest
-        // buffer on backpressure, not stall the streaming thread. Recording branch (below)
-        // keeps default non-leaky semantics so every frame reaches the muxer.
+        // leaky=downstream (2) so the live-display branch drops the oldest buffer on
+        // sustained backpressure instead of stalling the streaming thread. The depth is
+        // time-bounded rather than buffer-count-bounded: at this point one buffer is one
+        // encoded access unit, and bursty sources (e.g. wfb-ng flushing a whole FEC block
+        // of AUs within microseconds) would overflow a 2-buffer cap on ordinary scheduler
+        // latency, silently discarding reference frames (P-frame smear until next IDR).
+        // 100 ms of headroom absorbs such bursts with no steady-state latency cost.
+        // Recording branch (below) keeps default non-leaky semantics so every frame
+        // reaches the muxer.
         g_object_set(decoderQueue,
                      "leaky", 2,
-                     "max-size-buffers", 2,
+                     "max-size-buffers", 0,
                      "max-size-bytes", 0,
-                     "max-size-time", G_GUINT64_CONSTANT(0),
+                     "max-size-time", G_GUINT64_CONSTANT(100) * GST_MSECOND,
                      nullptr);
 
         _decoderValve = gst_element_factory_make("valve", nullptr);
