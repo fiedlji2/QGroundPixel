@@ -15,16 +15,26 @@ target_sources(${CMAKE_PROJECT_NAME}
         AndroidInit.cc
         AndroidInterface.cc
         AndroidInterface.h
-        AndroidSerial.cc
-        AndroidSerial.h
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # ----------------------------------------------------------------------------
 # Android Serial Port Support
+# RadioMaster AX12: with QGC_USE_QT_SERIAL_ON_ANDROID the native Qt6::SerialPort
+# Android backend is used (see src/Comms/CMakeLists.txt) and the custom
+# AndroidSerial/qtandroidserialport stack is not built.
 # ----------------------------------------------------------------------------
-add_subdirectory(qtandroidserialport)
+if(QGC_USE_QT_SERIAL_ON_ANDROID)
+    message(STATUS "QGC: Android serial via Qt6::SerialPort (custom AndroidSerial stack disabled)")
+else()
+    target_sources(${CMAKE_PROJECT_NAME}
+        PRIVATE
+            AndroidSerial.cc
+            AndroidSerial.h
+    )
+    add_subdirectory(qtandroidserialport)
+endif()
 
 # ----------------------------------------------------------------------------
 # Qt Android Extensions (2GIS) — selective compile

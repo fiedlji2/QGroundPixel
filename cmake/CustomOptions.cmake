@@ -108,6 +108,7 @@ option(QGC_ENABLE_LZ4 "Enable LZ4 decompression support" OFF)
 # ============================================================================
 
 option(QGC_NO_SERIAL_LINK "Disable serial port communication" OFF)
+option(QGC_USE_QT_SERIAL_ON_ANDROID "Use Qt6::SerialPort on Android instead of the custom AndroidSerial stack (RadioMaster AX12 internal radio)" ON)
 
 # ============================================================================
 # Video Streaming Options

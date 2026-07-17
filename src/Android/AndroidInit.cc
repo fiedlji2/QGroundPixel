@@ -1,5 +1,5 @@
 #include "AndroidInterface.h"
-#ifndef QGC_NO_SERIAL_LINK
+#if !defined(QGC_NO_SERIAL_LINK) && !defined(QGC_USE_QT_SERIAL_ON_ANDROID)
 #include "AndroidSerial.h"
 #endif
 #include <QtCore/QJniEnvironment>
@@ -158,7 +158,7 @@ jint JNI_OnLoad(JavaVM* vm, void*)
 
     AndroidInterface::setNativeMethods();
 
-#ifndef QGC_NO_SERIAL_LINK
+#if !defined(QGC_NO_SERIAL_LINK) && !defined(QGC_USE_QT_SERIAL_ON_ANDROID)
     AndroidSerial::setNativeMethods();
 #endif
 
@@ -183,7 +183,7 @@ void JNI_OnUnload(JavaVM* vm, void*)
 
     _java_vm.store(nullptr, std::memory_order_release);
 
-#ifndef QGC_NO_SERIAL_LINK
+#if !defined(QGC_NO_SERIAL_LINK) && !defined(QGC_USE_QT_SERIAL_ON_ANDROID)
     AndroidSerial::cleanupJniCache();
 #endif
 }

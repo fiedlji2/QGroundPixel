@@ -2,7 +2,7 @@
 
 #include <QtCore/QRegularExpression>
 #include <QtCore/QtSystemDetection>
-#ifdef Q_OS_ANDROID
+#if defined(Q_OS_ANDROID) && !defined(QGC_USE_QT_SERIAL_ON_ANDROID)
     #include "qserialportinfo.h"
 #else
     #include <QtSerialPort/QSerialPortInfo>

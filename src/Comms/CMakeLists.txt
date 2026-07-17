@@ -60,6 +60,13 @@ else()
 
     if(NOT ANDROID)
         target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::SerialPort)
+    elseif(QGC_USE_QT_SERIAL_ON_ANDROID AND TARGET Qt6::SerialPort)
+        # RadioMaster AX12: Qt 6.8+ ships a native Android QSerialPort backend which can
+        # reach the transmitter's internal radio serial port. Use it instead of the
+        # custom AndroidSerial/qtandroidserialport stack (ported from RadioMaster-RC
+        # qgroundcontrol commit 9993d95, branch RM_AX12_Serial_Port-5.0.8).
+        target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::SerialPort)
+        target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE QGC_USE_QT_SERIAL_ON_ANDROID)
     endif()
 endif()
 
