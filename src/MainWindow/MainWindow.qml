@@ -20,6 +20,17 @@ ApplicationWindow {
     // The special casing for android prevents white bars from showing up on the edges of the screen with newer android versions
     flags:      Qt.Window | (ScreenTools.isAndroid ? Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint : 0)
 
+    // ExpandedClientAreaHint spans the window across the whole display, but Qt 6.9+ then
+    // pads the content back in by SafeArea.margins (the system bar areas). QGC hides the
+    // bars and paints its own UI edge to edge, so that padding only leaves the display
+    // corners unpainted — the very white bars the flags above are meant to remove.
+    // Verified on an API 28 (Android 9) 1280x720 emulator: cancels the 36px top / 72px
+    // right unpainted strips.
+    topPadding:     ScreenTools.isAndroid ? 0 : undefined
+    bottomPadding:  ScreenTools.isAndroid ? 0 : undefined
+    leftPadding:    ScreenTools.isAndroid ? 0 : undefined
+    rightPadding:   ScreenTools.isAndroid ? 0 : undefined
+
     Component.onCompleted: {
         // Start the sequence of first run prompt(s)
         firstRunPromptManager.nextPrompt()
