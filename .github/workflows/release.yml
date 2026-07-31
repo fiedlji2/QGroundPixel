@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 'lts/*'
 
@@ -79,7 +79,7 @@ jobs:
 
     steps:
       - name: Wait for builds to complete
-        uses: int128/wait-for-workflows-action@v1
+        uses: int128/wait-for-workflows-action@v1.87.0
         with:
           workflow-names: |
             Linux
