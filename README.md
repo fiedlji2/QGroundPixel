@@ -11,6 +11,22 @@ place without a separate goggle/receiver app.
 
 ---
 
+## Download & install
+
+**📥 [Download QGroundPixel-signed.apk](https://github.com/fiedlji2/QGroundPixel/raw/main/dist/QGroundPixel-signed.apk)**
+(arm64, Android 9+, built from this repository's `main`)
+
+1. On the AX12 allow installs from unknown sources (Settings → Security), then open the
+   APK — or install from a PC with `adb install QGroundPixel-signed.apk`.
+2. If Android says **"App not installed"**, a previous QGroundPixel signed with a different
+   key is still on the device: uninstall it first (note your WFB‑NG channel and re‑import a
+   custom `gs.key` afterwards), then install again. Builds from this repo share one key, so
+   later updates install straight over each other.
+3. Plug in the RTL8812AU adapter, accept the USB permission prompt, and see
+   [AX12 quick setup](#ax12-quick-setup) below.
+
+---
+
 ## What it does differently from stock QGroundControl
 
 Everything below is additive — no standard QGC functionality is removed.
@@ -52,6 +68,19 @@ above.)
 
 ### 4. Distinct application id
 Built as `org.qgroundpixel.app` so it can be installed alongside a stock QGroundControl.
+
+### 5. Video pipeline tuning & diagnostics
+- The wifibroadcast source on `127.0.0.1` is never torn down on a signal fade: stock QGC's
+  3 s watchdog + reconnect backoff would add seconds of black on top of every fade, so the
+  pipeline is kept alive and resyncs at the next keyframe.
+- "Software decoder" really means libav's multi‑threaded `avdec_*` now — stock QGC could
+  pick Google's MediaCodec‑wrapped software codec instead, which can't keep up with 1080p.
+- **WFB‑NG Video → Diagnostics**: *Capture raw RTP stream to file* (every video packet with
+  a timestamp, for offline link analysis with `custom/tools/analyze_rtp_capture.py`) and
+  *Native MediaCodec decoder* (experimental: PixelPilot's hardware decode path instead of
+  GStreamer, low latency, no in‑app recording; restart the app after switching).
+- **Fly View settings → Show photo/video control** hides the record/photo panel that is
+  otherwise always on screen when a video stream is present.
 
 ---
 
