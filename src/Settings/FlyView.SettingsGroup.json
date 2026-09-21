@@ -53,6 +53,14 @@
             "keywords": "center map"
         },
         {
+            "name": "showPhotoVideoControl",
+            "shortDesc": "Show the photo/video capture control in the Fly View when a camera or video stream is available.",
+            "type": "bool",
+            "default": true,
+            "label": "Show photo/video control",
+            "keywords": "camera,video,photo,record,capture,control"
+        },
+        {
             "name": "showSimpleCameraControl",
             "shortDesc": "Display simple camera trigger controls using MAVLink DIGICAM_CONTROL commands.",
             "type": "bool",

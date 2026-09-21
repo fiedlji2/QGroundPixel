@@ -30,6 +30,9 @@
                     "setting": "flyViewSettings.showLogReplayStatusBar"
                 },
                 {
+                    "setting": "flyViewSettings.showPhotoVideoControl"
+                },
+                {
                     "setting": "flyViewSettings.showSimpleCameraControl"
                 },
                 {
