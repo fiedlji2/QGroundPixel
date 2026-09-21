@@ -14,8 +14,9 @@ Q_DECLARE_LOGGING_CATEGORY(QGroundPixelLog)
 /// video on the target device), and registers the WfbngManager QML singleton
 /// used by the WFB-NG settings page.
 ///
-/// NOTE: the videonative (MediaCodec) decode experiment lives in
-/// VideonativeReceiver.cc/h but is parked — not compiled, no overrides here.
+/// Optionally (WFB-NG settings page, "native decoder") the GStreamer pipeline is
+/// replaced by VideonativeReceiver: PixelPilot's MediaCodec decoder fed straight
+/// from UDP 5600, for low-latency hardware decoding on the AX12.
 class QGroundPixelPlugin : public QGCCorePlugin
 {
     Q_OBJECT
@@ -28,4 +29,5 @@ public:
     // Overrides from QGCCorePlugin
     void adjustSettingMetaData(const QString &settingsGroup, FactMetaData &metaData, bool &userVisible) final;
     QQmlApplicationEngine *createQmlApplicationEngine(QObject *parent) final;
+    VideoReceiver *createVideoReceiver(QObject *parent) final;
 };

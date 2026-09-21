@@ -2,6 +2,7 @@
 
 #include "QGCLoggingCategory.h"
 #include "VideoSettings.h"
+#include "VideonativeReceiver.h"
 #include "WfbngManager.h"
 
 #ifdef QGC_GST_STREAMING
@@ -48,6 +49,17 @@ void QGroundPixelPlugin::adjustSettingMetaData(const QString &settingsGroup, Fac
 #endif
         }
     }
+}
+
+VideoReceiver *QGroundPixelPlugin::createVideoReceiver(QObject *parent)
+{
+#ifdef Q_OS_ANDROID
+    if (WfbngManager::instance()->nativeDecoder()) {
+        qCDebug(QGroundPixelLog) << "Creating VideonativeReceiver (PixelPilot MediaCodec decoder)";
+        return new VideonativeReceiver(parent);
+    }
+#endif
+    return QGCCorePlugin::createVideoReceiver(parent);
 }
 
 QQmlApplicationEngine *QGroundPixelPlugin::createQmlApplicationEngine(QObject *parent)

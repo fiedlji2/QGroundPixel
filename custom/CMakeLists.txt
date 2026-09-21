@@ -47,11 +47,13 @@ set(QGC_RESOURCES ${QGC_RESOURCES} ${CUSTOM_RESOURCES} CACHE STRING "Paths to .q
 # Custom Plugin Sources
 # ============================================================================
 
-# NOTE: VideonativeReceiver.cc/h (MediaCodec decode experiment) intentionally
-# left out of the build — parked until the GStreamer SW-decoder path is replaced.
+# VideonativeReceiver: PixelPilot's MediaCodec decoder as an alternative to the
+# GStreamer pipeline (opt-in via the WFB-NG settings page, "native decoder").
 set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/QGroundPixelPlugin.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/QGroundPixelPlugin.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VideonativeReceiver.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VideonativeReceiver.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/WfbngManager.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/WfbngManager.h
     CACHE INTERNAL "" FORCE
@@ -75,5 +77,6 @@ set(CUSTOM_DEFINITIONS
 
 set(CUSTOM_QT_COMPONENTS
     Core
+    Multimedia
     CACHE INTERNAL "" FORCE
 )

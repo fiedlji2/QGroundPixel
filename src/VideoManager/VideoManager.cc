@@ -27,6 +27,7 @@
 #include <QtCore/QEventLoop>
 #include <QtCore/QFutureWatcher>
 #include <QtCore/QRunnable>
+#include <QtCore/QSettings>
 #include <QtCore/QTimer>
 #include <QtQml/QQmlEngine>
 #include <QtQuick/QQuickItem>
@@ -843,6 +844,17 @@ void VideoManager::_startReceiver(VideoReceiver *receiver)
 
     const QString source = _videoSettings->videoSource()->rawValue().toString();
     const uint32_t timeout = ((source == VideoSettings::videoSourceRTSP) ? _videoSettings->rtspTimeout()->rawValue().toUInt() : 3);
+
+    // Diagnostics: raw RTP capture of UDP sources (see GstSourceFactory rtpCaptureProbe). The
+    // receiver picks the directory up as a dynamic property when it builds its source bin.
+    {
+        QSettings settings;
+        const bool rtpCapture = settings.value(QStringLiteral("VideoDebug/rtpCaptureEnabled"), false).toBool();
+        const QString captureDir = rtpCapture
+            ? QDir(SettingsManager::instance()->appSettings()->savePath()->rawValue().toString()).filePath(QStringLiteral("RtpCapture"))
+            : QString();
+        (void) receiver->setProperty("rtpCaptureDir", captureDir);
+    }
 
     receiver->start(timeout);
 }

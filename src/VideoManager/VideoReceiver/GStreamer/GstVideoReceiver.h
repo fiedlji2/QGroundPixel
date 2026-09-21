@@ -109,6 +109,7 @@ private:
     /// `reason` is logged so reconnect storms are diagnosable. No-op when
     /// autoReconnect() is disabled.
     void _scheduleReconnect(const char *reason);
+    bool _isLoopbackUdpSource() const;
 
     /// Returns a strong ref to _pipeline (caller must gst_object_unref) or nullptr if torn down.
     /// Bus sync-message callbacks run on the streaming thread concurrent with stop() on the
@@ -142,6 +143,7 @@ private:
     GstPad *_eosProbePad = nullptr;  // ref-held: probe install pad, kept so removal targets the right pad regardless of _decoder lifecycle
     gulong _keyframeWatchId = 0;
     bool _recordingStopRequested = false;
+    bool _sourceStalled = false;  ///< Worker-thread only: loopback source watchdog reported a stall (pipeline kept alive).
 
     mutable QMutex _decoderNameMutex;  // QString refcount isn't thread-safe across reader/writer threads
     QString _decoderName;

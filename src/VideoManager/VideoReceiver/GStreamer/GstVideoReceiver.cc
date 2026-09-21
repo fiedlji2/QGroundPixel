@@ -18,6 +18,7 @@
 #include "QGCQVideoSinkController.h"
 
 #include <QtCore/QDateTime>
+#include <QtCore/QDir>
 #include <QtCore/QMutexLocker>
 #include <QtCore/QUrl>
 #include <QtQuick/QQuickItem>
@@ -210,6 +211,12 @@ void GstVideoReceiver::start(uint32_t timeout)
         // do-retransmission needs ≥40 ms latency headroom over the default 20 ms rtx-delay;
         // forcibly disable for sub-frame latency configurations to avoid retransmit storms.
         sourceConfig.doRetransmission = (_rtpJitterLatencyMs >= 40) && (sourceConfig.jitterBuffer != GStreamer::SourceFactory::JitterBuffer::None);
+        // Diagnostics: VideoManager sets "rtpCaptureDir" when raw RTP capture is enabled.
+        const QString rtpCaptureDir = property("rtpCaptureDir").toString();
+        if (!rtpCaptureDir.isEmpty()) {
+            sourceConfig.rtpCaptureFile = QDir(rtpCaptureDir).filePath(
+                QStringLiteral("rtp-%1.qgprtp").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss"))));
+        }
         _source = GStreamer::SourceFactory::create(_uri, sourceConfig);
         if (!_source) {
             qCCritical(GstVideoReceiverLog) << "SourceFactory::create() failed";
@@ -678,11 +685,27 @@ void GstVideoReceiver::_watchdog()
 
         qint64 elapsed = now - lastSourceFrameTime;
         if (elapsed > _timeout) {
+            // A loopback UDP source (e.g. the wfb-ng receiver feeding 127.0.0.1) has no server to
+            // reconnect to: an RF fade ends by itself and the decoder resyncs at the next keyframe.
+            // Tearing the pipeline down only adds the reconnect backoff plus a full GOP of parser
+            // warm-up on top of the fade, so report the stall but keep the pipeline alive.
+            if (_isLoopbackUdpSource()) {
+                if (!_sourceStalled) {
+                    _sourceStalled = true;
+                    qCInfo(GstVideoReceiverLog) << "Stream stalled, no frames for" << elapsed << "- keeping pipeline (loopback source)" << _uri;
+                    emit timeout();
+                }
+                return;
+            }
             qCDebug(GstVideoReceiverLog) << "Stream timeout, no frames for" << elapsed << _uri;
             GST_DEBUG_BIN_TO_DOT_FILE(GST_BIN(_pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "pipeline-watchdog-timeout");
             emit timeout();
             _scheduleReconnect("source watchdog");
             return;
+        }
+        if (_sourceStalled) {
+            _sourceStalled = false;
+            qCInfo(GstVideoReceiverLog) << "Stream resumed after stall" << _uri;
         }
 
         if (_decoding && !_removingDecoder) {
@@ -701,6 +724,18 @@ void GstVideoReceiver::_watchdog()
             }
         }
     });
+}
+
+bool GstVideoReceiver::_isLoopbackUdpSource() const
+{
+    const QUrl url(_uri);
+    const QString scheme = url.scheme().toLower();
+    if (!scheme.startsWith(QLatin1String("udp")) && (scheme != QLatin1String("mpegts"))) {
+        return false;
+    }
+    const QString host = url.host().toLower();
+    return host.isEmpty() || (host == QLatin1String("127.0.0.1")) || (host == QLatin1String("localhost"))
+           || (host == QLatin1String("0.0.0.0")) || (host == QLatin1String("::1"));
 }
 
 void GstVideoReceiver::_scheduleReconnect(const char *reason)

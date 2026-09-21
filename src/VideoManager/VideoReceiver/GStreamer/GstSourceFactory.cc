@@ -1,7 +1,11 @@
 #include "GstSourceFactory.h"
 
+#include <QtCore/QDir>
 #include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QUrl>
+#include <chrono>
+#include <cstdio>
 #include <gst/gst.h>
 #include <gst/rtsp/gstrtsptransport.h>
 
@@ -451,6 +455,112 @@ bool linkSourceToParser(GstElement* bin, GstElement* upstream, GstElement* binPa
     return true;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Raw RTP capture (link diagnostics). A buffer probe on the UDP source's src pad appends every
+// datagram to a file: 8-byte magic once, then per packet
+//     u64 wall-clock microseconds (little-endian) | u32 length (LE) | payload
+// A probe adds no elements to the live pipeline, so capturing cannot change what the decoder
+// sees. The file is closed by the probe's destroy notify when the pad is torn down.
+// ---------------------------------------------------------------------------------------------
+constexpr char kRtpCaptureMagic[8] = {'Q', 'G', 'P', 'R', 'T', 'P', '1', '\n'};
+
+struct RtpCaptureContext
+{
+    std::FILE* file = nullptr;
+    guint64 packets = 0;
+    guint64 bytes = 0;
+    guint64 lastFlushUs = 0;
+};
+
+GstPadProbeReturn rtpCaptureProbe(GstPad*, GstPadProbeInfo* info, gpointer userData)
+{
+    auto* ctx = static_cast<RtpCaptureContext*>(userData);
+    GstBuffer* buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+    if (!ctx || !ctx->file || !buffer) {
+        return GST_PAD_PROBE_OK;
+    }
+
+    GstMapInfo map;
+    if (!gst_buffer_map(buffer, &map, GST_MAP_READ)) {
+        return GST_PAD_PROBE_OK;
+    }
+
+    const auto sinceEpoch = std::chrono::system_clock::now().time_since_epoch();
+    const guint64 wallUs = static_cast<guint64>(std::chrono::duration_cast<std::chrono::microseconds>(sinceEpoch).count());
+    const guint32 len = static_cast<guint32>(map.size);
+
+    guint8 header[12];
+    for (int i = 0; i < 8; ++i) {
+        header[i] = static_cast<guint8>((wallUs >> (8 * i)) & 0xFF);
+    }
+    for (int i = 0; i < 4; ++i) {
+        header[8 + i] = static_cast<guint8>((len >> (8 * i)) & 0xFF);
+    }
+    (void) std::fwrite(header, 1, sizeof(header), ctx->file);
+    (void) std::fwrite(map.data, 1, map.size, ctx->file);
+    gst_buffer_unmap(buffer, &map);
+
+    ctx->packets++;
+    ctx->bytes += len;
+    // Flush about once a second so the capture survives an app kill mid-flight.
+    if ((wallUs - ctx->lastFlushUs) > 1000000ULL) {
+        (void) std::fflush(ctx->file);
+        ctx->lastFlushUs = wallUs;
+    }
+    return GST_PAD_PROBE_OK;
+}
+
+void rtpCaptureDestroy(gpointer userData)
+{
+    auto* ctx = static_cast<RtpCaptureContext*>(userData);
+    if (!ctx) {
+        return;
+    }
+    if (ctx->file) {
+        (void) std::fclose(ctx->file);
+    }
+    qCInfo(GstSourceFactoryLog) << "RTP capture closed:" << ctx->packets << "packets," << ctx->bytes << "bytes";
+    delete ctx;
+}
+
+void installRtpCapture(GstElement* source, const QString& filePath)
+{
+    if (filePath.isEmpty()) {
+        return;
+    }
+
+    const QFileInfo fileInfo(filePath);
+    if (!QDir().mkpath(fileInfo.absolutePath())) {
+        qCWarning(GstSourceFactoryLog) << "RTP capture: cannot create directory" << fileInfo.absolutePath();
+        return;
+    }
+
+    GstPad* pad = gst_element_get_static_pad(source, "src");
+    if (!pad) {
+        qCWarning(GstSourceFactoryLog) << "RTP capture: source has no static src pad";
+        return;
+    }
+
+    std::FILE* file = std::fopen(QFile::encodeName(filePath).constData(), "wb");
+    if (!file) {
+        qCWarning(GstSourceFactoryLog) << "RTP capture: cannot open" << filePath;
+        gst_object_unref(pad);
+        return;
+    }
+    (void) std::fwrite(kRtpCaptureMagic, 1, sizeof(kRtpCaptureMagic), file);
+
+    auto* ctx = new RtpCaptureContext;
+    ctx->file = file;
+    const gulong probeId = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, rtpCaptureProbe, ctx, rtpCaptureDestroy);
+    if (probeId == 0) {
+        qCWarning(GstSourceFactoryLog) << "RTP capture: gst_pad_add_probe failed";
+        rtpCaptureDestroy(ctx);
+    } else {
+        qCInfo(GstSourceFactoryLog) << "RTP capture started:" << filePath;
+    }
+    gst_object_unref(pad);
+}
+
 bool linkUdpRtpToDepayAndParser(GstElement* bin, GstElement* source, GstElement* depay, GstElement* parser,
                                 const Config& config, guint latencyMs)
 {
@@ -571,6 +681,10 @@ GstElement* create(const QString& uri, const Config& config)
         }
         GstElement* upstream = source;
         source = nullptr;
+
+        if (isUdpH264 || isUdpH265) {
+            installRtpCapture(upstream, config.rtpCaptureFile);
+        }
 
         if (rtpDepay && !gst_bin_add(GST_BIN(bin), rtpDepay)) {
             qCCritical(GstSourceFactoryLog) << "gst_bin_add(rtph265depay) failed";

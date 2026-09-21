@@ -29,6 +29,9 @@ class WfbngManager : public QObject
     Q_PROPERTY(int packetsRecovered READ packetsRecovered NOTIFY linkStatsChanged)
     Q_PROPERTY(int packetsLost READ packetsLost NOTIFY linkStatsChanged)
     Q_PROPERTY(QString keyStatus READ keyStatus NOTIFY keyStatusChanged)
+    Q_PROPERTY(bool rtpCapture READ rtpCapture WRITE setRtpCapture NOTIFY rtpCaptureChanged)
+    Q_PROPERTY(QString rtpCaptureDir READ rtpCaptureDir CONSTANT)
+    Q_PROPERTY(bool nativeDecoder READ nativeDecoder WRITE setNativeDecoder NOTIFY nativeDecoderChanged)
 
 public:
     explicit WfbngManager(QObject *parent = nullptr);
@@ -51,6 +54,18 @@ public:
     int packetsRecovered() const { return _packetsRecovered; }
     int packetsLost() const { return _packetsLost; }
     QString keyStatus() const { return _keyStatus; }
+
+    /// Diagnostics: dump the raw RTP stream (as delivered by wfb-ng on UDP 5600) to
+    /// rtpCaptureDir for offline link analysis. Toggling restarts the video pipeline.
+    bool rtpCapture() const;
+    void setRtpCapture(bool enabled);
+    QString rtpCaptureDir() const;
+
+    /// Use PixelPilot's MediaCodec decoder (VideonativeReceiver) instead of the
+    /// GStreamer pipeline. Read once when the video receivers are created, so a
+    /// change takes effect after an app restart.
+    bool nativeDecoder() const;
+    void setNativeDecoder(bool enabled);
 
     void setEnabled(bool enabled);
     void setChannel(int channel);
@@ -78,6 +93,8 @@ signals:
     void adaptiveLinkChanged();
     void linkStatsChanged();
     void keyStatusChanged();
+    void rtpCaptureChanged();
+    void nativeDecoderChanged();
 
 private:
     QString _gsKeyPath() const;

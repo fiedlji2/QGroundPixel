@@ -156,6 +156,43 @@ Rectangle {
             }
 
             QGCLabel {
+                text:       qsTr("Diagnostics")
+                font.bold:  true
+            }
+
+            GridLayout {
+                columns:        2
+                columnSpacing:  _margins
+                rowSpacing:     ScreenTools.defaultFontPixelHeight / 2
+
+                QGCLabel { text: qsTr("Capture raw RTP stream to file") }
+                QGCCheckBox {
+                    checked:    WfbngManager.rtpCapture
+                    onClicked:  WfbngManager.rtpCapture = checked
+                }
+
+                QGCLabel { text: qsTr("Native MediaCodec decoder (experimental)") }
+                QGCCheckBox {
+                    checked:    WfbngManager.nativeDecoder
+                    onClicked:  WfbngManager.nativeDecoder = checked
+                }
+            }
+
+            QGCLabel {
+                Layout.maximumWidth: ScreenTools.defaultFontPixelWidth * 60
+                wrapMode:   Text.WordWrap
+                color:      qgcPal.colorGrey
+                text:       qsTr("Native decoder: PixelPilot's hardware (MediaCodec) decode path instead of GStreamer — low latency, no recording/screenshots. Restart the app after changing.")
+            }
+
+            QGCLabel {
+                Layout.maximumWidth: ScreenTools.defaultFontPixelWidth * 60
+                wrapMode:   Text.WordWrap
+                color:      qgcPal.colorGrey
+                text:       qsTr("While enabled, every video packet is written (with a timestamp) to a new file under:\n%1\nReproduce a video dropout, then turn it off — captures grow about 1 MB per second.").arg(WfbngManager.rtpCaptureDir)
+            }
+
+            QGCLabel {
                 Layout.maximumWidth: ScreenTools.defaultFontPixelWidth * 60
                 wrapMode:   Text.WordWrap
                 color:      qgcPal.colorGrey

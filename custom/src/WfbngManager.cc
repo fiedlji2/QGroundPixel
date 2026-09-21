@@ -1,11 +1,16 @@
 #include "WfbngManager.h"
 
+#include "AppSettings.h"
 #include "QGCLoggingCategory.h"
+#include "SettingsManager.h"
+#include "VideoManager.h"
 
 #include <QtCore/QApplicationStatic>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QSettings>
+#include <QtCore/QTimer>
 
 #ifdef Q_OS_ANDROID
 #include <QtCore/QJniEnvironment>
@@ -342,6 +347,59 @@ void WfbngManager::restart()
         s_javaManager.callMethod<void>("restart");
     }
 #endif
+}
+
+namespace {
+constexpr const char *kRtpCaptureKey = "VideoDebug/rtpCaptureEnabled";
+}
+
+bool WfbngManager::rtpCapture() const
+{
+    QSettings settings;
+    return settings.value(QLatin1String(kRtpCaptureKey), false).toBool();
+}
+
+void WfbngManager::setRtpCapture(bool enabled)
+{
+    if (rtpCapture() == enabled) {
+        return;
+    }
+
+    QSettings settings;
+    settings.setValue(QLatin1String(kRtpCaptureKey), enabled);
+    emit rtpCaptureChanged();
+
+    // VideoManager reads the flag when it (re)starts a receiver, so bounce the pipeline.
+    // stopVideo() is asynchronous; mirror VideoManager's own 1 s restart cadence.
+    VideoManager::instance()->stopVideo();
+    QTimer::singleShot(1000, VideoManager::instance(), []() { VideoManager::instance()->startVideo(); });
+    qCDebug(WfbngManagerLog) << "RTP capture" << (enabled ? "enabled" : "disabled") << "- restarting video";
+}
+
+QString WfbngManager::rtpCaptureDir() const
+{
+    return QDir(SettingsManager::instance()->appSettings()->savePath()->rawValue().toString())
+        .filePath(QStringLiteral("RtpCapture"));
+}
+
+bool WfbngManager::nativeDecoder() const
+{
+    QSettings settings;
+    settings.beginGroup(kSettingsGroup);
+    return settings.value("nativeDecoder", false).toBool();
+}
+
+void WfbngManager::setNativeDecoder(bool enabled)
+{
+    if (nativeDecoder() == enabled) {
+        return;
+    }
+    QSettings settings;
+    settings.beginGroup(kSettingsGroup);
+    settings.setValue("nativeDecoder", enabled);
+    settings.endGroup();
+    emit nativeDecoderChanged();
+    qCDebug(WfbngManagerLog) << "Native decoder" << (enabled ? "enabled" : "disabled") << "- takes effect after app restart";
 }
 
 void WfbngManager::updateAdapterCount(int count)

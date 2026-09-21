@@ -119,6 +119,15 @@ void forEachPlugin(GstRegistry* registry, const std::function<void(GstPlugin*)>&
     gst_plugin_list_free(plugins);
 }
 
+/// Google's software codecs (OMX.google.* / c2.android.*) reached through MediaCodec: software
+/// speed plus MediaCodec output buffering — the worst option for a live stream. Never prefer them
+/// over libav's avdec_* when a software decoder is requested.
+static bool isMediaCodecSoftwareWrapper(const QByteArray& nameLower)
+{
+    return nameLower.startsWith("amcvideodec-omxgoogle") || nameLower.startsWith("amcvideodec-c2android")
+           || nameLower.startsWith("amcviddec-omxgoogle") || nameLower.startsWith("amcviddec-c2android");
+}
+
 bool isHardwareDecoderFactory(GstElementFactory* factory)
 {
     if (!factory) {
@@ -132,11 +141,12 @@ bool isHardwareDecoderFactory(GstElementFactory* factory)
 
     const QByteArray nameLower = QByteArray::fromRawData(factoryName, qstrlen(factoryName)).toLower();
 
-    // Android MediaCodec: exclude software wrappers, accept remaining as hardware
-    if (nameLower.startsWith("amcviddec-omxgoogle") || nameLower.startsWith("amcviddec-c2android")) {
+    // Android MediaCodec: exclude software wrappers, accept remaining as hardware.
+    // (Factory prefix is "amcvideodec-" in current androidmedia; keep the legacy spelling too.)
+    if (isMediaCodecSoftwareWrapper(nameLower)) {
         return false;
     }
-    if (nameLower.startsWith("amcviddec-")) {
+    if (nameLower.startsWith("amcvideodec-") || nameLower.startsWith("amcviddec-")) {
         return true;
     }
 
@@ -278,6 +288,16 @@ void prioritizeByHardwareClass(GstRegistry* registry, uint16_t prioritizedRank, 
 
         const gchar* featureName = gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory));
         if (!featureName) {
+            continue;
+        }
+
+        // Software request: keep MediaCodec-wrapped software codecs out of the running so the
+        // multi-threaded libav decoders win (equal ranks otherwise resolve by name, and
+        // "amcvideodec-omxgoogle..." sorts before "avdec_...").
+        if (!requireHardware
+            && isMediaCodecSoftwareWrapper(QByteArray::fromRawData(featureName, qstrlen(featureName)).toLower())) {
+            qCDebug(GStreamerHelpersLog) << "Demoting MediaCodec software wrapper" << featureName;
+            changeFeatureRank(registry, featureName, GST_RANK_NONE);
             continue;
         }
 

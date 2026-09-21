@@ -22,6 +22,9 @@ struct Config
     JitterBuffer jitterBuffer = JitterBuffer::DropOnLatency;
     int latencyMs = 80;
     bool doRetransmission = true;
+    /// Diagnostics: when non-empty (UDP RTP sources only), every datagram leaving the UDP
+    /// source is appended to this file with a wall-clock timestamp (see rtpCaptureProbe).
+    QString rtpCaptureFile;
 };
 
 /// Build a source bin (`source` [+ `tsdemux`] [+ `rtpjitterbuffer`] + `parsebin`)
