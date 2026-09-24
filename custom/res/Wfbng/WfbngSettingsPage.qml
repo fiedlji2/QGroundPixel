@@ -71,6 +71,22 @@ Rectangle {
                     }
                 }
 
+                QGCLabel { text: qsTr("H.264 decoder") }
+                QGCComboBox {
+                    Layout.preferredWidth: _comboWidth
+                    model: [qsTr("Software (libav)"), qsTr("Hardware (MediaCodec)"), qsTr("Follow Video settings")]
+                    currentIndex: WfbngManager.decoderH264 === 1 ? 0 : (WfbngManager.decoderH264 === 8 ? 1 : 2)
+                    onActivated: (index) => WfbngManager.decoderH264 = (index === 0 ? 1 : (index === 1 ? 8 : -1))
+                }
+
+                QGCLabel { text: qsTr("H.265 decoder") }
+                QGCComboBox {
+                    Layout.preferredWidth: _comboWidth
+                    model: [qsTr("Software (libav)"), qsTr("Hardware (MediaCodec)"), qsTr("Follow Video settings")]
+                    currentIndex: WfbngManager.decoderH265 === 1 ? 0 : (WfbngManager.decoderH265 === 8 ? 1 : 2)
+                    onActivated: (index) => WfbngManager.decoderH265 = (index === 0 ? 1 : (index === 1 ? 8 : -1))
+                }
+
                 QGCLabel { text: qsTr("WiFi channel") }
                 QGCComboBox {
                     id: channelCombo
@@ -251,7 +267,7 @@ Rectangle {
                 Layout.maximumWidth: ScreenTools.defaultFontPixelWidth * 60
                 wrapMode:   Text.WordWrap
                 color:      qgcPal.colorGrey
-                text:       qsTr("The codec above must match the drone camera encoder (majestic.yaml). A mismatch shows no video while the pipeline silently restarts every 3 seconds.")
+                text:       qsTr("The codec must match the drone camera encoder (majestic.yaml); a mismatch shows no video. The decoder is chosen per codec: software keeps latency low for H.264 sources such as the XFRobot Z2, while 720p60 H.265 from OpenIPC needs the hardware decoder (software cannot keep up and the picture goes gray every keyframe). Changing the codec applies the matching decoder automatically; if the picture looks wrong after a change, restart the app.")
             }
         }
     }

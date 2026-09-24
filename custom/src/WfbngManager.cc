@@ -3,8 +3,16 @@
 #include "AppSettings.h"
 #include "QGCLoggingCategory.h"
 #include "SettingsManager.h"
+#include "VideoBackend.h"
 #include "VideoManager.h"
+#include "VideoSettings.h"
 #include "VtxHttpProxy.h"
+
+#ifdef QGC_GST_STREAMING
+#include "GStreamer.h"
+#endif
+
+#include <climits>
 
 #include <QtCore/QApplicationStatic>
 #include <QtCore/QCoreApplication>
@@ -31,6 +39,14 @@ constexpr const char *kJavaManagerClass = "org/mavlink/qgroundcontrol/wfb/QGCWfb
 constexpr const char *kJavaVpnClass = "org/mavlink/qgroundcontrol/wfb/QGCWfbVpnService";
 constexpr int kVpnConsentRequestCode = 0x5746;   // 'WF'
 constexpr int kAndroidResultOk = -1;             // Activity.RESULT_OK
+
+// Values of QGC's "Force video decoder" setting (GStreamer::VideoDecoderOptions).
+constexpr int kDecoderSoftware = 1;
+constexpr int kDecoderHardware = 8;
+#ifdef QGC_GST_STREAMING
+static_assert(kDecoderSoftware == GStreamer::ForceVideoDecoderSoftware, "decoder option value drifted");
+static_assert(kDecoderHardware == GStreamer::ForceVideoDecoderHardware, "decoder option value drifted");
+#endif
 
 #ifdef Q_OS_ANDROID
 QJniObject s_javaManager;
@@ -149,6 +165,17 @@ void WfbngManager::_applyKeyStatus()
 
 void WfbngManager::init()
 {
+    // Per-codec decoder preference: runs on every platform and before the video backend
+    // reads the global setting, so the right decoder is ranked from the first frame on.
+    if (!_decoderPreferenceHooked) {
+        _decoderPreferenceHooked = true;
+        _applyDecoderPreference(false);
+        if (VideoSettings *videoSettings = SettingsManager::instance()->videoSettings()) {
+            (void) connect(videoSettings->videoSource(), &Fact::rawValueChanged, this,
+                           [this](const QVariant &) { _applyDecoderPreference(true); });
+        }
+    }
+
     if (_initialized || !supported()) {
         _applyKeyStatus();
         return;
@@ -518,6 +545,64 @@ QString WfbngManager::rtpCaptureDir() const
 {
     return QDir(SettingsManager::instance()->appSettings()->savePath()->rawValue().toString())
         .filePath(QStringLiteral("RtpCapture"));
+}
+
+int WfbngManager::_decoderPreference(const char *key, int defaultValue) const
+{
+    QSettings settings;
+    settings.beginGroup(kSettingsGroup);
+    return settings.value(QLatin1String(key), defaultValue).toInt();
+}
+
+void WfbngManager::_setDecoderPreference(const char *key, int option)
+{
+    if (_decoderPreference(key, INT_MIN) == option) {
+        return;
+    }
+    QSettings settings;
+    settings.beginGroup(kSettingsGroup);
+    settings.setValue(QLatin1String(key), option);
+    settings.endGroup();
+    emit decoderPreferenceChanged();
+    _applyDecoderPreference(true);
+}
+
+int WfbngManager::decoderH264() const { return _decoderPreference("decoderH264", kDecoderSoftware); }
+void WfbngManager::setDecoderH264(int option) { _setDecoderPreference("decoderH264", option); }
+int WfbngManager::decoderH265() const { return _decoderPreference("decoderH265", kDecoderHardware); }
+void WfbngManager::setDecoderH265(int option) { _setDecoderPreference("decoderH265", option); }
+
+void WfbngManager::_applyDecoderPreference(bool restartVideo)
+{
+    VideoSettings *videoSettings = SettingsManager::instance()->videoSettings();
+    if (!videoSettings) {
+        return;
+    }
+
+    const QString source = videoSettings->videoSource()->rawValue().toString();
+    int preference = -1;
+    if (source == QLatin1String(VideoSettings::videoSourceUDPH265)) {
+        preference = decoderH265();
+    } else if (source == QLatin1String(VideoSettings::videoSourceUDPH264)) {
+        preference = decoderH264();
+    }
+    if (preference < 0) {
+        return;   // "follow the global setting" for this codec, or not a UDP RTP source
+    }
+
+    Fact *forceDecoder = videoSettings->forceVideoDecoder();
+    if (forceDecoder->rawValue().toInt() == preference) {
+        return;
+    }
+    qCDebug(WfbngManagerLog) << "Video source" << source << "- switching decoder preference to" << preference;
+    forceDecoder->setRawValue(preference);
+
+    if (restartVideo) {
+        // Element ranks are otherwise only applied at startup; re-apply and bounce the pipeline.
+        VideoBackend::applyDecoderPriorities(preference);
+        VideoManager::instance()->stopVideo();
+        QTimer::singleShot(1000, VideoManager::instance(), []() { VideoManager::instance()->startVideo(); });
+    }
 }
 
 bool WfbngManager::nativeDecoder() const

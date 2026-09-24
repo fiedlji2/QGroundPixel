@@ -32,6 +32,8 @@ class WfbngManager : public QObject
     Q_PROPERTY(bool rtpCapture READ rtpCapture WRITE setRtpCapture NOTIFY rtpCaptureChanged)
     Q_PROPERTY(QString rtpCaptureDir READ rtpCaptureDir CONSTANT)
     Q_PROPERTY(bool nativeDecoder READ nativeDecoder WRITE setNativeDecoder NOTIFY nativeDecoderChanged)
+    Q_PROPERTY(int decoderH264 READ decoderH264 WRITE setDecoderH264 NOTIFY decoderPreferenceChanged)
+    Q_PROPERTY(int decoderH265 READ decoderH265 WRITE setDecoderH265 NOTIFY decoderPreferenceChanged)
     Q_PROPERTY(QString vtxHost READ vtxHost WRITE setVtxHost NOTIFY vtxSettingsChanged)
     Q_PROPERTY(QString vtxUser READ vtxUser WRITE setVtxUser NOTIFY vtxSettingsChanged)
     Q_PROPERTY(QString vtxPassword READ vtxPassword WRITE setVtxPassword NOTIFY vtxSettingsChanged)
@@ -72,6 +74,16 @@ public:
     /// change takes effect after an app restart.
     bool nativeDecoder() const;
     void setNativeDecoder(bool enabled);
+
+    /// Decoder preference per codec, applied to QGC's global "Force video decoder" setting
+    /// whenever the selected codec (video source) changes: -1 = leave the global setting
+    /// alone, otherwise a GStreamer::VideoDecoderOptions value (1 = software, 8 = hardware).
+    /// Defaults: H.264 (XFRobot Z2 etc.) → software (the MediaTek hardware path adds ~1 s of
+    /// latency), H.265 (OpenIPC/Majestic 720p60) → hardware (software cannot keep up).
+    int decoderH264() const;
+    void setDecoderH264(int option);
+    int decoderH265() const;
+    void setDecoderH265(int option);
 
     /// VTX web page (Majestic / custom link-settings page): host on the tunnel and the
     /// HTTP Basic login it expects (OpenIPC default root / 12345).
@@ -128,6 +140,7 @@ signals:
     void keyStatusChanged();
     void rtpCaptureChanged();
     void nativeDecoderChanged();
+    void decoderPreferenceChanged();
     void vtxSettingsChanged();
     void tunnelEnabledChanged();
     void tunnelActiveChanged();
@@ -139,6 +152,12 @@ private:
     void _refreshTunnelState(const QString &statusOverride = QString());
     QString _vtxSetting(const char *key, const QString &defaultValue) const;
     void _setVtxSetting(const char *key, const QString &value);
+    int _decoderPreference(const char *key, int defaultValue) const;
+    void _setDecoderPreference(const char *key, int option);
+    /// Push the preference for the currently selected codec into the global setting.
+    void _applyDecoderPreference(bool restartVideo);
+
+    bool _decoderPreferenceHooked = false;
 
     bool _tunnelActive = false;
     QString _tunnelStatus;
