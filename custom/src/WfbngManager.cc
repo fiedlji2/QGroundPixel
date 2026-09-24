@@ -8,6 +8,7 @@
 
 #include <QtCore/QApplicationStatic>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QDateTime>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QSettings>
@@ -271,11 +272,39 @@ void WfbngManager::stopTunnel()
 #endif
 }
 
+void WfbngManager::ensureTunnel()
+{
+    if (!tunnelEnabled() || _tunnelActive) {
+        return;
+    }
+    qCDebug(WfbngManagerLog) << "tunnel enabled but down - restarting on request";
+    startTunnel();
+}
+
 void WfbngManager::_refreshTunnelState(const QString &statusOverride)
 {
     bool active = false;
 #ifdef Q_OS_ANDROID
     active = QJniObject::callStaticMethod<jboolean>(kJavaVpnClass, "isRunning", "()Z");
+
+    // Watchdog: the VPN service can be stopped underneath us (system pressure, revoke).
+    // Bring it back by itself when it is wanted and consent was already granted (so this
+    // never pops the consent dialog), at most once every 5 s.
+    if (!active && _initialized && tunnelEnabled() && statusOverride.isEmpty()) {
+        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+        if ((nowMs - _lastTunnelAutoStartMs) > 5000) {
+            QJniObject context = QNativeInterface::QAndroidApplication::context();
+            const QJniObject consentIntent = context.isValid()
+                ? QJniObject::callStaticObjectMethod(kJavaVpnClass, "prepareIntent",
+                                                     "(Landroid/content/Context;)Landroid/content/Intent;", context.object())
+                : QJniObject();
+            if (context.isValid() && !consentIntent.isValid()) {
+                _lastTunnelAutoStartMs = nowMs;
+                qCDebug(WfbngManagerLog) << "tunnel down while enabled - auto-restarting";
+                QJniObject::callStaticMethod<void>(kJavaVpnClass, "startService", "(Landroid/content/Context;)V", context.object());
+            }
+        }
+    }
 #endif
     QString status = statusOverride;
     if (status.isEmpty()) {

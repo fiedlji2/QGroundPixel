@@ -40,7 +40,7 @@ the whole wifibroadcast stack works invisibly as a software modem.
 
 Added on top of QGC:
 - `custom/` build overlay: `QGroundPixelPlugin` (a `QGCCorePlugin`), `WfbngManager`
-  (JNI bridge to the AAR), a **WFB‑NG Video** settings page, and the default `gs.key`.
+  (JNI bridge to the AAR), a **WFB‑NG settings** settings page, and the default `gs.key`.
 - `QGCWfbManager.java` — USB attach/detach + permission flow for the RTL8812AU adapter(s).
 - Video defaults are pre‑set for this use case: source **UDP h.265**, **low‑latency mode**,
   and **software decoder** (the Android hardware `amcviddec` path renders broken video on
@@ -48,7 +48,7 @@ Added on top of QGC:
 - A display‑queue tweak in `GstVideoReceiver` (time‑bounded instead of a 2‑buffer cap) so
   wfb‑ng's bursty FEC delivery doesn't drop P‑frames.
 
-Configure it under **Application Settings → WFB‑NG Video**: Wi‑Fi channel, bandwidth,
+Configure it under **Application Settings → WFB‑NG settings**: Wi‑Fi channel, bandwidth,
 codec, `gs.key` import, TX power, adaptive link, and live link stats.
 
 ### 2. Internal radio over serial (RadioMaster AX12)
@@ -75,7 +75,7 @@ Built as `org.qgroundpixel.app` so it can be installed alongside a stock QGround
   pipeline is kept alive and resyncs at the next keyframe.
 - "Software decoder" really means libav's multi‑threaded `avdec_*` now — stock QGC could
   pick Google's MediaCodec‑wrapped software codec instead, which can't keep up with 1080p.
-- **WFB‑NG Video → Diagnostics**: *Capture raw RTP stream to file* (every video packet with
+- **WFB‑NG settings → Diagnostics**: *Capture raw RTP stream to file* (every video packet with
   a timestamp, for offline link analysis with `custom/tools/analyze_rtp_capture.py`) and
   *Native MediaCodec decoder* (experimental: PixelPilot's hardware decode path instead of
   GStreamer, low latency, no in‑app recording; restart the app after switching).
@@ -88,13 +88,13 @@ served *by the VTX* — OpenIPC Majestic, or a minimal busybox‑httpd page with
 TX power / camera‑URL fields — the "SIYI Assistant" paradigm, independent of the
 flight‑controller firmware. Nothing is hosted in the app. The VTX address (default
 `10.5.0.10`, the wfb‑ng tunnel) and the page's HTTP login (OpenIPC default `root` /
-`12345`) are set on the WFB‑NG Video page; because Android's WebView cannot answer HTTP
+`12345`) are set on the WFB‑NG settings page; because Android's WebView cannot answer HTTP
 Basic‑auth challenges, the page is loaded through a tiny local relay that adds the
 `Authorization` header and otherwise pipes bytes untouched (streaming and WebSocket
 upgrades included).
 
 ### 7. wfb‑ng IP tunnel (PixelPilot‑style)
-**WFB‑NG Video → VTX tunnel** turns the wfb‑ng "udp" stream into a real network interface,
+**WFB‑NG settings → VTX tunnel** turns the wfb‑ng "udp" stream into a real network interface,
 exactly as PixelPilot does: an Android VPN (`QGCWfbVpnService`, TUN `10.5.0.3/24`, route
 `10.5.0.0/24` only) shuttles IP packets between the TUN and the native receiver's local
 ports (received tunnel packets on UDP 8000, packets to transmit on UDP 8001, injected over
@@ -152,7 +152,7 @@ The APK lands in `<build>/Android/android-build/…/*.apk`; sign it with your ow
 1. Install the APK (Settings → allow unknown sources, or `adb install`).
 2. Plug in the RTL8812AU adapter → allow the USB permission prompt.
 3. Reception starts on the configured channel; video appears in the Fly View.
-4. In **WFB‑NG Video** settings, match the **codec** to your camera (H.265 default — a
+4. In **WFB‑NG settings** settings, match the **codec** to your camera (H.265 default — a
    mismatch shows no video), set the Wi‑Fi **channel/bandwidth**, and import your `gs.key`
    if you use a non‑default one.
 

@@ -96,6 +96,9 @@ public:
     /// Start the tunnel now (asks for the one-time Android VPN consent if needed).
     Q_INVOKABLE void startTunnel();
     Q_INVOKABLE void stopTunnel();
+    /// (Re)start the tunnel if it is enabled but not up — used when the VTX settings page
+    /// opens. May show the consent dialog when it was never granted.
+    Q_INVOKABLE void ensureTunnel();
 
     void setEnabled(bool enabled);
     void setChannel(int channel);
@@ -139,6 +142,7 @@ private:
 
     bool _tunnelActive = false;
     QString _tunnelStatus;
+    qint64 _lastTunnelAutoStartMs = 0;   ///< watchdog rate limit (QDateTime msecs)
     class VtxHttpProxy *_vtxProxy = nullptr;
 
     bool _initialized = false;

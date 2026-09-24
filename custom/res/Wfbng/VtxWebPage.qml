@@ -12,7 +12,8 @@ import QGroundPixel
 /// (OpenIPC Majestic or a custom busybox-httpd page). Nothing is hosted in the app. The
 /// page is reached through the wfb-ng tunnel via a local relay that supplies the VTX's HTTP
 /// Basic login (Android's WebView cannot answer 401 challenges by itself). Address and login
-/// are configured on the WFB-NG Video page.
+/// are configured on the WFB-NG settings page. Opening this page (re)starts the tunnel if
+/// it is enabled but down, and the page reloads by itself once the tunnel comes up.
 Rectangle {
     id:             page
     objectName:     "settingsPage_VtxSettings"
@@ -35,8 +36,21 @@ Rectangle {
         webView.url = url
     }
 
-    Component.onCompleted:  load()
+    Component.onCompleted: {
+        WfbngManager.ensureTunnel()
+        load()
+    }
     Component.onDestruction: WfbngManager.stopVtxProxy()
+
+    // The tunnel came (back) up while this page was open: retry a failed load automatically.
+    Connections {
+        target: WfbngManager
+        function onTunnelActiveChanged() {
+            if (WfbngManager.tunnelActive && (page._lastError.length > 0 || webView.url.toString().length === 0)) {
+                page.load()
+            }
+        }
+    }
 
     ColumnLayout {
         anchors.fill:       parent
@@ -60,7 +74,7 @@ Rectangle {
                 text:               page._lastError.length
                                     ? qsTr("Cannot load VTX page (%1): %2").arg(WfbngManager.vtxHost).arg(page._lastError)
                                     : (!WfbngManager.tunnelActive
-                                        ? qsTr("wfb-ng tunnel is not up (%1) — enable it on the WFB-NG Video page").arg(WfbngManager.tunnelStatus)
+                                        ? qsTr("wfb-ng tunnel is not up (%1) — reconnecting; enable it on the WFB-NG settings page if it stays down").arg(WfbngManager.tunnelStatus)
                                         : (webView.loading ? qsTr("Loading %1… %2%").arg(WfbngManager.vtxHost).arg(webView.loadProgress)
                                                            : qsTr("VTX %1 — %2").arg(WfbngManager.vtxHost).arg(webView.title)))
             }

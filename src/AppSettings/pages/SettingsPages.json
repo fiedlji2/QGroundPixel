@@ -93,7 +93,7 @@
             "visible": "QGroundControl.settingsManager.videoSettings.userVisible"
         },
         {
-            "name": "WFB-NG Video",
+            "name": "WFB-NG settings",
             "url": "qrc:/Custom/Wfbng/WfbngSettingsPage.qml",
             "icon": "qrc:/InstrumentValueIcons/camera.svg"
         },
