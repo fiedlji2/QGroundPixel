@@ -62,6 +62,12 @@ VideoReceiver *QGroundPixelPlugin::createVideoReceiver(QObject *parent)
     return QGCCorePlugin::createVideoReceiver(parent);
 }
 
+void *QGroundPixelPlugin::createVideoSink(QQuickItem *widget, QObject *parent)
+{
+    WfbngManager::instance()->applyDecoderPreferenceNow();
+    return QGCCorePlugin::createVideoSink(widget, parent);
+}
+
 QQmlApplicationEngine *QGroundPixelPlugin::createQmlApplicationEngine(QObject *parent)
 {
     QQmlApplicationEngine *engine = QGCCorePlugin::createQmlApplicationEngine(parent);

@@ -7,6 +7,7 @@
 #include <QtCore/QMutex>
 #include <QtCore/QPromise>
 #include <QtCore/QObject>
+#include <QtCore/QSet>
 #include <QtCore/QSize>
 #include <QtQmlIntegration/QtQmlIntegration>
 
@@ -57,6 +58,11 @@ public:
     Q_INVOKABLE void startVideo();
     Q_INVOKABLE void stopRecording();
     Q_INVOKABLE void stopVideo();
+    /// Re-create every receiver's video sink from the current video settings (e.g. after the
+    /// decoder preference changed: the sink's GPU zero-copy mode must match the decoder).
+    /// Running receivers are stopped first; the sink is swapped once the stop completes and
+    /// the receiver restarts on its own.
+    Q_INVOKABLE void rebuildVideoSinks();
 
     void init(QQuickWindow *mainWindow);
     void startVideoBackendInit();
@@ -121,11 +127,13 @@ private:
     bool _updateVideoUri(VideoReceiver *receiver, const QString &uri);
     void _restartAllVideos();
     void _restartVideo(VideoReceiver *receiver);
+    void _rebuildSink(VideoReceiver *receiver);
     void _startReceiver(VideoReceiver *receiver);
     void _stopReceiver(VideoReceiver *receiver);
     static void _cleanupOldVideos();
 
     QList<VideoReceiver*> _videoReceivers;
+    QSet<VideoReceiver*> _sinkRebuildPending;   ///< receivers whose sink is swapped once their stop completes
     SubtitleWriter *_subtitleWriter = nullptr;
     VideoSettings *_videoSettings = nullptr;
     QQuickWindow *_mainWindow = nullptr;

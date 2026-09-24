@@ -84,6 +84,9 @@ public:
     void setDecoderH264(int option);
     int decoderH265() const;
     void setDecoderH265(int option);
+    /// Push the preference for the current codec into the global setting without touching
+    /// the running pipeline (used right before a video sink is created).
+    void applyDecoderPreferenceNow() { _applyDecoderPreference(false); }
 
     /// VTX web page (Majestic / custom link-settings page): host on the tunnel and the
     /// HTTP Basic login it expects (OpenIPC default root / 12345).

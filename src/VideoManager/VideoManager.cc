@@ -782,6 +782,44 @@ void VideoManager::_communicationLostChanged(bool connectionLost)
     }
 }
 
+void VideoManager::rebuildVideoSinks()
+{
+    for (VideoReceiver *receiver : std::as_const(_videoReceivers)) {
+        if (receiver->started()) {
+            // Swap happens in onStopComplete, then the receiver restarts itself (1 s).
+            _sinkRebuildPending.insert(receiver);
+            _stopReceiver(receiver);
+        } else {
+            _rebuildSink(receiver);
+        }
+    }
+}
+
+void VideoManager::_rebuildSink(VideoReceiver *receiver)
+{
+    if (!receiver || !receiver->widget()) {
+        return;
+    }
+
+    void *const oldSink = receiver->sink();
+    void *const sink = QGCCorePlugin::instance()->createVideoSink(receiver->widget(), receiver);
+    if (!sink) {
+        qCWarning(VideoManagerLog) << "createVideoSink() failed while rebuilding" << receiver->name() << "- keeping old sink";
+        return;
+    }
+
+    receiver->setSink(sink);
+    // Receivers marking themselves qgpExternalSink push frames directly into the widget's
+    // QVideoSink; the backend attach would misread their handle.
+    if (!receiver->property("qgpExternalSink").toBool()) {
+        VideoBackend::attachSink(receiver, sink, receiver->widget());   // detaches the old controllers
+    }
+    if (oldSink) {
+        QGCCorePlugin::instance()->releaseVideoSink(oldSink);
+    }
+    qCDebug(VideoManagerLog) << "Video sink rebuilt for" << receiver->name();
+}
+
 void VideoManager::_restartAllVideos()
 {
     for (VideoReceiver *videoReceiver : std::as_const(_videoReceivers)) {
@@ -917,6 +955,10 @@ void VideoManager::_initVideoReceiver(VideoReceiver *receiver, QQuickWindow *win
     (void) connect(receiver, &VideoReceiver::onStopComplete, this, [this, receiver](VideoReceiver::STATUS status) {
         qCDebug(VideoManagerLog) << "Stop complete" << receiver->name() << receiver->uri()  << ", status:" << status;
         receiver->setStarted(false);
+        // The pipeline no longer holds the sink: safe to swap it before the restart below.
+        if (_sinkRebuildPending.remove(receiver)) {
+            _rebuildSink(receiver);
+        }
         if (status == VideoReceiver::STATUS_INVALID_URL) {
             qCDebug(VideoManagerLog) << "Invalid video URL. Not restarting";
         } else {

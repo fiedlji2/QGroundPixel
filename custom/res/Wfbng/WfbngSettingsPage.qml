@@ -267,7 +267,7 @@ Rectangle {
                 Layout.maximumWidth: ScreenTools.defaultFontPixelWidth * 60
                 wrapMode:   Text.WordWrap
                 color:      qgcPal.colorGrey
-                text:       qsTr("The codec must match the drone camera encoder (majestic.yaml); a mismatch shows no video. The decoder is chosen per codec: software keeps latency low for H.264 sources such as the XFRobot Z2, while 720p60 H.265 from OpenIPC needs the hardware decoder (software cannot keep up and the picture goes gray every keyframe). Changing the codec applies the matching decoder automatically; if the picture looks wrong after a change, restart the app.")
+                text:       qsTr("The codec must match the drone camera encoder (majestic.yaml); a mismatch shows no video. The decoder is chosen per codec: software keeps latency low for H.264 sources such as the XFRobot Z2, while 720p60 H.265 from OpenIPC needs the hardware decoder (software cannot keep up and the picture goes gray every keyframe). Changing the codec applies the matching decoder automatically and rebuilds the video pipeline.")
             }
         }
     }

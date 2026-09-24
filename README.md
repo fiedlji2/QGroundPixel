@@ -79,7 +79,9 @@ Built as `org.qgroundpixel.app` so it can be installed alongside a stock QGround
   the software decoder (the MediaTek hardware path adds ~1 s of latency), 720p60 H.265 from
   OpenIPC/Majestic uses the hardware decoder (software decode cannot keep up — frames are
   dropped, references break and the picture goes gray until the next keyframe). Selecting a
-  codec applies the matching decoder automatically; both mappings are editable.
+  codec applies the matching decoder automatically — including rebuilding the video sink,
+  whose GPU‑zero‑copy mode must match the decoder (a hardware‑mode sink fed by the software
+  decoder stutters through failing GL uploads) — and both mappings are editable.
 - **WFB‑NG settings → Diagnostics**: *Capture raw RTP stream to file* (every video packet with
   a timestamp, for offline link analysis with `custom/tools/analyze_rtp_capture.py`) and
   *Native MediaCodec decoder* (experimental: PixelPilot's hardware decode path instead of

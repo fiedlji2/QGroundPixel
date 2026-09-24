@@ -30,4 +30,7 @@ public:
     void adjustSettingMetaData(const QString &settingsGroup, FactMetaData &metaData, bool &userVisible) final;
     QQmlApplicationEngine *createQmlApplicationEngine(QObject *parent) final;
     VideoReceiver *createVideoReceiver(QObject *parent) final;
+    /// Applies the per-codec decoder preference right before the sink is built, so the
+    /// sink's GPU/CPU mode always matches the decoder that will feed it.
+    void *createVideoSink(QQuickItem *widget, QObject *parent) final;
 };

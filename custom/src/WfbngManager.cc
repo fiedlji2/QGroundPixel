@@ -598,10 +598,11 @@ void WfbngManager::_applyDecoderPreference(bool restartVideo)
     forceDecoder->setRawValue(preference);
 
     if (restartVideo) {
-        // Element ranks are otherwise only applied at startup; re-apply and bounce the pipeline.
+        // Element ranks are otherwise only applied at startup, and the sink's GPU/CPU mode
+        // was fixed when it was built: re-apply the ranks and rebuild the sinks (stops the
+        // pipeline, swaps the sink once the stop completes, restarts by itself).
         VideoBackend::applyDecoderPriorities(preference);
-        VideoManager::instance()->stopVideo();
-        QTimer::singleShot(1000, VideoManager::instance(), []() { VideoManager::instance()->startVideo(); });
+        VideoManager::instance()->rebuildVideoSinks();
     }
 }
 
