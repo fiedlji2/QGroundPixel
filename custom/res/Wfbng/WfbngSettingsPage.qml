@@ -173,13 +173,41 @@ Rectangle {
 
                 QGCLabel { text: qsTr("Status") }
                 QGCLabel { text: WfbngManager.tunnelStatus; color: WfbngManager.tunnelActive ? qgcPal.colorGreen : qgcPal.text }
+
+                QGCLabel { text: qsTr("VTX address") }
+                QGCTextField {
+                    Layout.preferredWidth: _comboWidth
+                    text:               WfbngManager.vtxHost
+                    inputMethodHints:   Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                    onEditingFinished:  WfbngManager.vtxHost = text
+                }
+
+                QGCLabel { text: qsTr("VTX web login") }
+                RowLayout {
+                    spacing: _margins / 2
+                    QGCTextField {
+                        Layout.preferredWidth: _comboWidth / 2
+                        text:               WfbngManager.vtxUser
+                        placeholderText:    qsTr("user")
+                        inputMethodHints:   Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                        onEditingFinished:  WfbngManager.vtxUser = text
+                    }
+                    QGCTextField {
+                        Layout.preferredWidth: _comboWidth / 2
+                        text:               WfbngManager.vtxPassword
+                        placeholderText:    qsTr("password")
+                        echoMode:           TextInput.Password
+                        inputMethodHints:   Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText | Qt.ImhSensitiveData
+                        onEditingFinished:  WfbngManager.vtxPassword = text
+                    }
+                }
             }
 
             QGCLabel {
                 Layout.maximumWidth: ScreenTools.defaultFontPixelWidth * 60
                 wrapMode:   Text.WordWrap
                 color:      qgcPal.colorGrey
-                text:       qsTr("Makes the VTX reachable at 10.5.0.10 from this device (VTX settings page, adaptive-link uplink) through the wifibroadcast link, like PixelPilot. Android asks once for VPN permission; the tunnel is local only and routes nothing else.")
+                text:       qsTr("Makes the VTX reachable at its tunnel address from this device (VTX settings page, adaptive-link uplink) through the wifibroadcast link, like PixelPilot. Android asks once for VPN permission; the tunnel is local only and routes nothing else. The login is the VTX web page's HTTP login (OpenIPC default root / 12345).")
             }
 
             QGCLabel {

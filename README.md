@@ -86,10 +86,12 @@ Built as `org.qgroundpixel.app` so it can be installed alongside a stock QGround
 **Application Settings → VTX settings** is a browser window for the configuration page
 served *by the VTX* — OpenIPC Majestic, or a minimal busybox‑httpd page with channel /
 TX power / camera‑URL fields — the "SIYI Assistant" paradigm, independent of the
-flight‑controller firmware. Nothing is hosted in the app: it provides the address bar with
-one‑tap presets for the wfb‑ng tunnel (`http://10.5.0.10`) and Ethernet
-(`http://192.168.144.20`), reload, an "open in system browser" fallback, and remembers the
-last URL.
+flight‑controller firmware. Nothing is hosted in the app. The VTX address (default
+`10.5.0.10`, the wfb‑ng tunnel) and the page's HTTP login (OpenIPC default `root` /
+`12345`) are set on the WFB‑NG Video page; because Android's WebView cannot answer HTTP
+Basic‑auth challenges, the page is loaded through a tiny local relay that adds the
+`Authorization` header and otherwise pipes bytes untouched (streaming and WebSocket
+upgrades included).
 
 ### 7. wfb‑ng IP tunnel (PixelPilot‑style)
 **WFB‑NG Video → VTX tunnel** turns the wfb‑ng "udp" stream into a real network interface,

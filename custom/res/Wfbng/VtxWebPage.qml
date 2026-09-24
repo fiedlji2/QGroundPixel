@@ -8,38 +8,35 @@ import QGroundControl.Controls
 
 import QGroundPixel
 
-/// "VTX settings": an embedded browser window for the configuration page served BY THE VTX
-/// itself (OpenIPC Majestic web UI or a custom busybox-httpd page with channel / TX power /
-/// camera-URL fields). Nothing is hosted in the app — it only provides the address bar, the
-/// presets and the tunnel. Reachable over the wfb-ng tunnel (10.5.0.10) or Ethernet
-/// (192.168.144.20), whichever path this device currently has to the VTX.
+/// "VTX settings": a browser window for the configuration page served BY THE VTX itself
+/// (OpenIPC Majestic or a custom busybox-httpd page). Nothing is hosted in the app. The
+/// page is reached through the wfb-ng tunnel via a local relay that supplies the VTX's HTTP
+/// Basic login (Android's WebView cannot answer 401 challenges by itself). Address and login
+/// are configured on the WFB-NG Video page.
 Rectangle {
     id:             page
     objectName:     "settingsPage_VtxSettings"
     color:          qgcPal.window
     anchors.fill:   parent
 
-    readonly property real   _margins:      ScreenTools.defaultFontPixelHeight / 2
-    readonly property string _tunnelUrl:    "http://10.5.0.10"
-    readonly property string _ethernetUrl:  "http://192.168.144.20"
+    readonly property real _margins: ScreenTools.defaultFontPixelHeight / 2
 
     property string _lastError: ""
 
     QGCPalette { id: qgcPal; colorGroupEnabled: true }
 
-    function go(text) {
-        var url = text.trim()
+    function load() {
+        _lastError = ""
+        var url = WfbngManager.startVtxProxy()
         if (url.length === 0) {
+            _lastError = qsTr("could not start the local relay")
             return
         }
-        if (url.indexOf("://") < 0) {
-            url = "http://" + url
-        }
-        _lastError = ""
-        WfbngManager.vtxUrl = url
-        urlField.text = url
         webView.url = url
     }
+
+    Component.onCompleted:  load()
+    Component.onDestruction: WfbngManager.stopVtxProxy()
 
     ColumnLayout {
         anchors.fill:       parent
@@ -50,76 +47,22 @@ Rectangle {
             Layout.fillWidth:   true
             spacing:            _margins / 2
 
-            QGCTextField {
-                id:                 urlField
-                Layout.fillWidth:   true
-                text:               WfbngManager.vtxUrl
-                inputMethodHints:   Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
-                onAccepted:         page.go(text)
-            }
-
-            QGCButton {
-                text:       qsTr("Go")
-                onClicked:  page.go(urlField.text)
-            }
-
             QGCButton {
                 text:       qsTr("Reload")
-                enabled:    webView.url.toString().length > 0
-                onClicked:  { page._lastError = ""; webView.reload() }
-            }
-
-            QGCButton {
-                text:       qsTr("Browser")
-                onClicked:  Qt.openUrlExternally(urlField.text.trim())
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth:   true
-            spacing:            _margins / 2
-
-            QGCLabel { text: qsTr("Presets:") }
-
-            QGCButton {
-                text:       qsTr("Tunnel (10.5.0.10)")
-                onClicked:  page.go(page._tunnelUrl)
-            }
-
-            QGCButton {
-                text:       qsTr("Ethernet (192.168.144.20)")
-                onClicked:  page.go(page._ethernetUrl)
+                onClicked:  page.load()
             }
 
             QGCLabel {
                 Layout.fillWidth:   true
                 elide:              Text.ElideRight
-                color:              page._lastError.length ? qgcPal.warningText : qgcPal.text
+                color:              page._lastError.length ? qgcPal.warningText
+                                                           : (WfbngManager.tunnelActive ? qgcPal.text : qgcPal.warningText)
                 text:               page._lastError.length
-                                    ? qsTr("Cannot load page: %1").arg(page._lastError)
-                                    : (webView.loading ? qsTr("Loading… %1%").arg(webView.loadProgress) : webView.title)
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth:   true
-            spacing:            _margins / 2
-
-            QGCLabel {
-                text:   qsTr("wfb-ng tunnel: %1").arg(WfbngManager.tunnelStatus)
-                color:  WfbngManager.tunnelActive ? qgcPal.colorGreen : qgcPal.colorGrey
-            }
-
-            QGCButton {
-                text:       WfbngManager.tunnelEnabled ? qsTr("Reconnect tunnel") : qsTr("Enable tunnel")
-                visible:    !WfbngManager.tunnelActive
-                onClicked:  {
-                    if (!WfbngManager.tunnelEnabled) {
-                        WfbngManager.tunnelEnabled = true
-                    } else {
-                        WfbngManager.startTunnel()
-                    }
-                }
+                                    ? qsTr("Cannot load VTX page (%1): %2").arg(WfbngManager.vtxHost).arg(page._lastError)
+                                    : (!WfbngManager.tunnelActive
+                                        ? qsTr("wfb-ng tunnel is not up (%1) — enable it on the WFB-NG Video page").arg(WfbngManager.tunnelStatus)
+                                        : (webView.loading ? qsTr("Loading %1… %2%").arg(WfbngManager.vtxHost).arg(webView.loadProgress)
+                                                           : qsTr("VTX %1 — %2").arg(WfbngManager.vtxHost).arg(webView.title)))
             }
         }
 
@@ -127,7 +70,6 @@ Rectangle {
             id:                 webView
             Layout.fillWidth:   true
             Layout.fillHeight:  true
-            url:                WfbngManager.vtxUrl
 
             onLoadingChanged: (loadRequest) => {
                 if (loadRequest.status === WebView.LoadFailedStatus) {

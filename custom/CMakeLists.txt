@@ -54,6 +54,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/QGroundPixelPlugin.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VideonativeReceiver.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VideonativeReceiver.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VtxHttpProxy.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VtxHttpProxy.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/WfbngManager.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/WfbngManager.h
     CACHE INTERNAL "" FORCE

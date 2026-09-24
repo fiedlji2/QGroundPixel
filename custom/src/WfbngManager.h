@@ -32,7 +32,9 @@ class WfbngManager : public QObject
     Q_PROPERTY(bool rtpCapture READ rtpCapture WRITE setRtpCapture NOTIFY rtpCaptureChanged)
     Q_PROPERTY(QString rtpCaptureDir READ rtpCaptureDir CONSTANT)
     Q_PROPERTY(bool nativeDecoder READ nativeDecoder WRITE setNativeDecoder NOTIFY nativeDecoderChanged)
-    Q_PROPERTY(QString vtxUrl READ vtxUrl WRITE setVtxUrl NOTIFY vtxUrlChanged)
+    Q_PROPERTY(QString vtxHost READ vtxHost WRITE setVtxHost NOTIFY vtxSettingsChanged)
+    Q_PROPERTY(QString vtxUser READ vtxUser WRITE setVtxUser NOTIFY vtxSettingsChanged)
+    Q_PROPERTY(QString vtxPassword READ vtxPassword WRITE setVtxPassword NOTIFY vtxSettingsChanged)
     Q_PROPERTY(bool tunnelEnabled READ tunnelEnabled WRITE setTunnelEnabled NOTIFY tunnelEnabledChanged)
     Q_PROPERTY(bool tunnelActive READ tunnelActive NOTIFY tunnelActiveChanged)
     Q_PROPERTY(QString tunnelStatus READ tunnelStatus NOTIFY tunnelActiveChanged)
@@ -71,10 +73,19 @@ public:
     bool nativeDecoder() const;
     void setNativeDecoder(bool enabled);
 
-    /// Last URL opened on the "VTX Web UI" page (Majestic / custom link-settings page on
-    /// the VTX). Default is the wfb-ng tunnel address; the Ethernet address is a preset.
-    QString vtxUrl() const;
-    void setVtxUrl(const QString &url);
+    /// VTX web page (Majestic / custom link-settings page): host on the tunnel and the
+    /// HTTP Basic login it expects (OpenIPC default root / 12345).
+    QString vtxHost() const;
+    void setVtxHost(const QString &host);
+    QString vtxUser() const;
+    void setVtxUser(const QString &user);
+    QString vtxPassword() const;
+    void setVtxPassword(const QString &password);
+
+    /// Start the local auth-injecting relay for the VTX page and return the URL the
+    /// browser should load (empty on failure). Idempotent.
+    Q_INVOKABLE QString startVtxProxy();
+    Q_INVOKABLE void stopVtxProxy();
 
     /// wfb-ng IP tunnel (QGCWfbVpnService): TUN 10.5.0.3/24 over the wifibroadcast link,
     /// so the VTX at 10.5.0.10 is reachable from this device (web UI, adaptive link uplink).
@@ -114,7 +125,7 @@ signals:
     void keyStatusChanged();
     void rtpCaptureChanged();
     void nativeDecoderChanged();
-    void vtxUrlChanged();
+    void vtxSettingsChanged();
     void tunnelEnabledChanged();
     void tunnelActiveChanged();
 
@@ -123,9 +134,12 @@ private:
     bool _provisionDefaultKey(bool overwrite);
     void _applyKeyStatus();
     void _refreshTunnelState(const QString &statusOverride = QString());
+    QString _vtxSetting(const char *key, const QString &defaultValue) const;
+    void _setVtxSetting(const char *key, const QString &value);
 
     bool _tunnelActive = false;
     QString _tunnelStatus;
+    class VtxHttpProxy *_vtxProxy = nullptr;
 
     bool _initialized = false;
     bool _enabled = true;

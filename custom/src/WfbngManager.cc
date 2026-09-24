@@ -4,6 +4,7 @@
 #include "QGCLoggingCategory.h"
 #include "SettingsManager.h"
 #include "VideoManager.h"
+#include "VtxHttpProxy.h"
 
 #include <QtCore/QApplicationStatic>
 #include <QtCore/QCoreApplication>
@@ -194,7 +195,7 @@ bool WfbngManager::tunnelEnabled() const
 {
     QSettings settings;
     settings.beginGroup(kSettingsGroup);
-    return settings.value("tunnelEnabled", false).toBool();
+    return settings.value("tunnelEnabled", true).toBool();
 }
 
 void WfbngManager::setTunnelEnabled(bool enabled)
@@ -497,24 +498,67 @@ bool WfbngManager::nativeDecoder() const
     return settings.value("nativeDecoder", false).toBool();
 }
 
-QString WfbngManager::vtxUrl() const
+QString WfbngManager::_vtxSetting(const char *key, const QString &defaultValue) const
 {
     QSettings settings;
     settings.beginGroup(kSettingsGroup);
-    return settings.value("vtxUrl", QStringLiteral("http://10.5.0.10")).toString();
+    return settings.value(QLatin1String(key), defaultValue).toString();
 }
 
-void WfbngManager::setVtxUrl(const QString &url)
+void WfbngManager::_setVtxSetting(const char *key, const QString &value)
 {
-    const QString trimmed = url.trimmed();
-    if (trimmed.isEmpty() || (vtxUrl() == trimmed)) {
+    if (_vtxSetting(key, QString()) == value) {
         return;
     }
     QSettings settings;
     settings.beginGroup(kSettingsGroup);
-    settings.setValue("vtxUrl", trimmed);
+    settings.setValue(QLatin1String(key), value);
     settings.endGroup();
-    emit vtxUrlChanged();
+    emit vtxSettingsChanged();
+    // A live relay keeps the old target/credentials until restarted; the page restarts it.
+    stopVtxProxy();
+}
+
+QString WfbngManager::vtxHost() const { return _vtxSetting("vtxHost", QStringLiteral("10.5.0.10")); }
+void WfbngManager::setVtxHost(const QString &host)
+{
+    const QString trimmed = host.trimmed();
+    if (!trimmed.isEmpty()) {
+        _setVtxSetting("vtxHost", trimmed);
+    }
+}
+QString WfbngManager::vtxUser() const { return _vtxSetting("vtxUser", QStringLiteral("root")); }
+void WfbngManager::setVtxUser(const QString &user) { _setVtxSetting("vtxUser", user.trimmed()); }
+QString WfbngManager::vtxPassword() const { return _vtxSetting("vtxPassword", QStringLiteral("12345")); }
+void WfbngManager::setVtxPassword(const QString &password) { _setVtxSetting("vtxPassword", password); }
+
+QString WfbngManager::startVtxProxy()
+{
+    if (!_vtxProxy) {
+        _vtxProxy = new VtxHttpProxy(this);
+    }
+    QString host = vtxHost();
+    quint16 port = 80;
+    const int colon = host.lastIndexOf(':');
+    if (colon > 0) {
+        bool ok = false;
+        const int parsed = host.mid(colon + 1).toInt(&ok);
+        if (ok && (parsed > 0) && (parsed < 65536)) {
+            port = static_cast<quint16>(parsed);
+            host = host.left(colon);
+        }
+    }
+    if (!_vtxProxy->start(host, port, vtxUser(), vtxPassword())) {
+        return QString();
+    }
+    return _vtxProxy->baseUrl();
+}
+
+void WfbngManager::stopVtxProxy()
+{
+    if (_vtxProxy) {
+        _vtxProxy->stop();
+    }
 }
 
 void WfbngManager::setNativeDecoder(bool enabled)
