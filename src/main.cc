@@ -8,6 +8,10 @@
     #include "UnitTestList.h"
 #endif
 
+#ifdef QGC_ENABLE_WEBVIEW
+    #include <QtWebView/QtWebView>
+#endif
+
 QGC_LOGGING_CATEGORY_ON(MainLog, "Main")
 
 int main(int argc, char *argv[])
@@ -22,6 +26,11 @@ int main(int argc, char *argv[])
     if (const auto exitCode = Platform::initialize(argc, argv, args)) {
         return *exitCode;
     }
+
+#ifdef QGC_ENABLE_WEBVIEW
+    // Must precede the QGuiApplication instance (custom builds with an embedded WebView page).
+    QtWebView::initialize();
+#endif
 
     QGCApplication app(argc, argv, args);
 

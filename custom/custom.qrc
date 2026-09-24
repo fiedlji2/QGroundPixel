@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/Custom">
         <file alias="Wfbng/WfbngSettingsPage.qml">res/Wfbng/WfbngSettingsPage.qml</file>
+        <file alias="Wfbng/VtxWebPage.qml">res/Wfbng/VtxWebPage.qml</file>
         <file alias="wfb/gs.key">res/wfb/gs.key</file>
     </qresource>
 </RCC>

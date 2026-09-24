@@ -32,6 +32,10 @@ class WfbngManager : public QObject
     Q_PROPERTY(bool rtpCapture READ rtpCapture WRITE setRtpCapture NOTIFY rtpCaptureChanged)
     Q_PROPERTY(QString rtpCaptureDir READ rtpCaptureDir CONSTANT)
     Q_PROPERTY(bool nativeDecoder READ nativeDecoder WRITE setNativeDecoder NOTIFY nativeDecoderChanged)
+    Q_PROPERTY(QString vtxUrl READ vtxUrl WRITE setVtxUrl NOTIFY vtxUrlChanged)
+    Q_PROPERTY(bool tunnelEnabled READ tunnelEnabled WRITE setTunnelEnabled NOTIFY tunnelEnabledChanged)
+    Q_PROPERTY(bool tunnelActive READ tunnelActive NOTIFY tunnelActiveChanged)
+    Q_PROPERTY(QString tunnelStatus READ tunnelStatus NOTIFY tunnelActiveChanged)
 
 public:
     explicit WfbngManager(QObject *parent = nullptr);
@@ -67,6 +71,21 @@ public:
     bool nativeDecoder() const;
     void setNativeDecoder(bool enabled);
 
+    /// Last URL opened on the "VTX Web UI" page (Majestic / custom link-settings page on
+    /// the VTX). Default is the wfb-ng tunnel address; the Ethernet address is a preset.
+    QString vtxUrl() const;
+    void setVtxUrl(const QString &url);
+
+    /// wfb-ng IP tunnel (QGCWfbVpnService): TUN 10.5.0.3/24 over the wifibroadcast link,
+    /// so the VTX at 10.5.0.10 is reachable from this device (web UI, adaptive link uplink).
+    bool tunnelEnabled() const;
+    void setTunnelEnabled(bool enabled);
+    bool tunnelActive() const { return _tunnelActive; }
+    QString tunnelStatus() const { return _tunnelStatus; }
+    /// Start the tunnel now (asks for the one-time Android VPN consent if needed).
+    Q_INVOKABLE void startTunnel();
+    Q_INVOKABLE void stopTunnel();
+
     void setEnabled(bool enabled);
     void setChannel(int channel);
     void setBandwidth(int bandwidth);
@@ -95,11 +114,18 @@ signals:
     void keyStatusChanged();
     void rtpCaptureChanged();
     void nativeDecoderChanged();
+    void vtxUrlChanged();
+    void tunnelEnabledChanged();
+    void tunnelActiveChanged();
 
 private:
     QString _gsKeyPath() const;
     bool _provisionDefaultKey(bool overwrite);
     void _applyKeyStatus();
+    void _refreshTunnelState(const QString &statusOverride = QString());
+
+    bool _tunnelActive = false;
+    QString _tunnelStatus;
 
     bool _initialized = false;
     bool _enabled = true;

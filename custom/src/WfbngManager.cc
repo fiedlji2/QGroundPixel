@@ -15,6 +15,7 @@
 #ifdef Q_OS_ANDROID
 #include <QtCore/QJniEnvironment>
 #include <QtCore/QJniObject>
+#include <QtCore/private/qandroidextras_p.h>
 #endif
 
 QGC_LOGGING_CATEGORY(WfbngManagerLog, "QGroundPixel.WfbngManager")
@@ -25,6 +26,9 @@ namespace {
 constexpr const char *kSettingsGroup = "QGroundPixelWfbng";
 constexpr const char *kDefaultKeyResource = ":/Custom/wfb/gs.key";
 constexpr const char *kJavaManagerClass = "org/mavlink/qgroundcontrol/wfb/QGCWfbManager";
+constexpr const char *kJavaVpnClass = "org/mavlink/qgroundcontrol/wfb/QGCWfbVpnService";
+constexpr int kVpnConsentRequestCode = 0x5746;   // 'WF'
+constexpr int kAndroidResultOk = -1;             // Activity.RESULT_OK
 
 #ifdef Q_OS_ANDROID
 QJniObject s_javaManager;
@@ -175,9 +179,113 @@ void WfbngManager::init()
     _initialized = true;
     qCDebug(WfbngManagerLog) << "WFB-NG initialized: channel" << _channel
                              << "bandwidth" << _bandwidth << "enabled" << _enabled;
+
+    if (tunnelEnabled()) {
+        startTunnel();
+    } else {
+        _refreshTunnelState();
+    }
 #endif
 
     _applyKeyStatus();
+}
+
+bool WfbngManager::tunnelEnabled() const
+{
+    QSettings settings;
+    settings.beginGroup(kSettingsGroup);
+    return settings.value("tunnelEnabled", false).toBool();
+}
+
+void WfbngManager::setTunnelEnabled(bool enabled)
+{
+    if (tunnelEnabled() == enabled) {
+        return;
+    }
+    QSettings settings;
+    settings.beginGroup(kSettingsGroup);
+    settings.setValue("tunnelEnabled", enabled);
+    settings.endGroup();
+    emit tunnelEnabledChanged();
+
+    if (enabled) {
+        startTunnel();
+    } else {
+        stopTunnel();
+    }
+}
+
+void WfbngManager::startTunnel()
+{
+#ifdef Q_OS_ANDROID
+    QJniObject context = QNativeInterface::QAndroidApplication::context();
+    if (!context.isValid()) {
+        _refreshTunnelState(tr("No Android context"));
+        return;
+    }
+
+    const QJniObject consentIntent = QJniObject::callStaticObjectMethod(
+        kJavaVpnClass, "prepareIntent", "(Landroid/content/Context;)Landroid/content/Intent;", context.object());
+
+    if (!consentIntent.isValid()) {
+        // Consent already granted (or not required): start straight away.
+        QJniObject::callStaticMethod<void>(kJavaVpnClass, "startService", "(Landroid/content/Context;)V", context.object());
+        qCDebug(WfbngManagerLog) << "wfb-ng tunnel start requested";
+        QTimer::singleShot(500, this, [this]() { _refreshTunnelState(); });
+        return;
+    }
+
+    _refreshTunnelState(tr("Waiting for VPN permission…"));
+    qCDebug(WfbngManagerLog) << "Requesting Android VPN consent for the wfb-ng tunnel";
+    QtAndroidPrivate::startActivity(consentIntent, kVpnConsentRequestCode,
+                                    [this](int requestCode, int resultCode, const QJniObject &data) {
+        Q_UNUSED(data);
+        if (requestCode != kVpnConsentRequestCode) {
+            return;
+        }
+        if (resultCode != kAndroidResultOk) {
+            qCWarning(WfbngManagerLog) << "VPN consent denied; wfb-ng tunnel not started";
+            _refreshTunnelState(tr("VPN permission denied"));
+            return;
+        }
+        QJniObject ctx = QNativeInterface::QAndroidApplication::context();
+        QJniObject::callStaticMethod<void>(kJavaVpnClass, "startService", "(Landroid/content/Context;)V", ctx.object());
+        qCDebug(WfbngManagerLog) << "VPN consent granted; wfb-ng tunnel start requested";
+        QTimer::singleShot(500, this, [this]() { _refreshTunnelState(); });
+    });
+#else
+    _refreshTunnelState(tr("Only available on Android"));
+#endif
+}
+
+void WfbngManager::stopTunnel()
+{
+#ifdef Q_OS_ANDROID
+    QJniObject context = QNativeInterface::QAndroidApplication::context();
+    if (context.isValid()) {
+        QJniObject::callStaticMethod<void>(kJavaVpnClass, "stopService", "(Landroid/content/Context;)V", context.object());
+        qCDebug(WfbngManagerLog) << "wfb-ng tunnel stop requested";
+    }
+    QTimer::singleShot(500, this, [this]() { _refreshTunnelState(); });
+#endif
+}
+
+void WfbngManager::_refreshTunnelState(const QString &statusOverride)
+{
+    bool active = false;
+#ifdef Q_OS_ANDROID
+    active = QJniObject::callStaticMethod<jboolean>(kJavaVpnClass, "isRunning", "()Z");
+#endif
+    QString status = statusOverride;
+    if (status.isEmpty()) {
+        status = active ? tr("Tunnel up: 10.5.0.3/24 → VTX 10.5.0.10")
+                        : (tunnelEnabled() ? tr("Tunnel down") : tr("Tunnel off"));
+    }
+    if ((active != _tunnelActive) || (status != _tunnelStatus)) {
+        _tunnelActive = active;
+        _tunnelStatus = status;
+        emit tunnelActiveChanged();
+    }
 }
 
 void WfbngManager::setEnabled(bool enabled)
@@ -389,6 +497,26 @@ bool WfbngManager::nativeDecoder() const
     return settings.value("nativeDecoder", false).toBool();
 }
 
+QString WfbngManager::vtxUrl() const
+{
+    QSettings settings;
+    settings.beginGroup(kSettingsGroup);
+    return settings.value("vtxUrl", QStringLiteral("http://10.5.0.10")).toString();
+}
+
+void WfbngManager::setVtxUrl(const QString &url)
+{
+    const QString trimmed = url.trimmed();
+    if (trimmed.isEmpty() || (vtxUrl() == trimmed)) {
+        return;
+    }
+    QSettings settings;
+    settings.beginGroup(kSettingsGroup);
+    settings.setValue("vtxUrl", trimmed);
+    settings.endGroup();
+    emit vtxUrlChanged();
+}
+
 void WfbngManager::setNativeDecoder(bool enabled)
 {
     if (nativeDecoder() == enabled) {
@@ -417,4 +545,7 @@ void WfbngManager::updateStats(int rssi, int ok, int recovered, int lost)
     _packetsRecovered = recovered;
     _packetsLost = lost;
     emit linkStatsChanged();
+    // Stats arrive about once a second while an adapter runs — cheap place to keep the
+    // tunnel indicator honest (the service can be revoked by the system at any time).
+    _refreshTunnelState();
 }

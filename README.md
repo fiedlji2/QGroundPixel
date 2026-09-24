@@ -82,6 +82,25 @@ Built as `org.qgroundpixel.app` so it can be installed alongside a stock QGround
 - **Fly View settings → Show photo/video control** hides the record/photo panel that is
   otherwise always on screen when a video stream is present.
 
+### 6. VTX settings (the air unit's own web page, in‑app)
+**Application Settings → VTX settings** is a browser window for the configuration page
+served *by the VTX* — OpenIPC Majestic, or a minimal busybox‑httpd page with channel /
+TX power / camera‑URL fields — the "SIYI Assistant" paradigm, independent of the
+flight‑controller firmware. Nothing is hosted in the app: it provides the address bar with
+one‑tap presets for the wfb‑ng tunnel (`http://10.5.0.10`) and Ethernet
+(`http://192.168.144.20`), reload, an "open in system browser" fallback, and remembers the
+last URL.
+
+### 7. wfb‑ng IP tunnel (PixelPilot‑style)
+**WFB‑NG Video → VTX tunnel** turns the wfb‑ng "udp" stream into a real network interface,
+exactly as PixelPilot does: an Android VPN (`QGCWfbVpnService`, TUN `10.5.0.3/24`, route
+`10.5.0.0/24` only) shuttles IP packets between the TUN and the native receiver's local
+ports (received tunnel packets on UDP 8000, packets to transmit on UDP 8001, injected over
+the RTL8812AU). Radio ports are PixelPilot's defaults — RX 32, TX 160, link id 7669206 —
+so a VTX already set up for PixelPilot's tunnel works unchanged. Android asks once for VPN
+consent. Besides the web UI this also gives the built‑in adaptive‑link uplink
+(`10.5.0.10:9999`) a route, which it never had in this app before.
+
 ---
 
 ## Target hardware

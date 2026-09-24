@@ -59,7 +59,12 @@ set(CUSTOM_SOURCES
     CACHE INTERNAL "" FORCE
 )
 
+# Qt6::WebView: embedded Android WebView for the "VTX Web UI" settings page
+# (Majestic / custom busybox-httpd link settings on the VTX).
+# Qt6::CorePrivate: QtAndroidPrivate::startActivity for the VPN consent dialog (wfb-ng tunnel).
 set(CUSTOM_LIBRARIES
+    Qt6::WebView
+    Qt6::CorePrivate
     CACHE INTERNAL "" FORCE
 )
 
@@ -72,11 +77,13 @@ set(CUSTOM_DEFINITIONS
     QGC_CUSTOM_BUILD
     CUSTOMHEADER="QGroundPixelPlugin.h"
     CUSTOMCLASS=QGroundPixelPlugin
+    QGC_ENABLE_WEBVIEW
     CACHE INTERNAL "" FORCE
 )
 
 set(CUSTOM_QT_COMPONENTS
     Core
     Multimedia
+    WebView
     CACHE INTERNAL "" FORCE
 )

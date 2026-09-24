@@ -272,6 +272,13 @@ endif()
 
 if(QGC_CUSTOM_BUILD)
     add_subdirectory("${QGC_CUSTOM_DIR}")
+    # Find the custom build's extra Qt components at this (top-level) scope: the executable
+    # target and Qt's Android deployment step live here, and imported targets found inside
+    # src/ are directory-scoped (e.g. Qt6::WebView and its QAndroidWebViewPlugin would be
+    # invisible to them, failing at generate time).
+    if(CUSTOM_QT_COMPONENTS)
+        find_package(Qt6 ${QGC_QT_MINIMUM_VERSION}...${QGC_QT_MAXIMUM_VERSION} REQUIRED COMPONENTS ${CUSTOM_QT_COMPONENTS})
+    endif()
 endif()
 
 # ============================================================================

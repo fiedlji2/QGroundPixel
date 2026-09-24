@@ -98,6 +98,11 @@
             "icon": "qrc:/InstrumentValueIcons/camera.svg"
         },
         {
+            "name": "VTX settings",
+            "url": "qrc:/Custom/Wfbng/VtxWebPage.qml",
+            "icon": "qrc:/InstrumentValueIcons/browser-window.svg"
+        },
+        {
             "divider": true
         },
         {

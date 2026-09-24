@@ -156,6 +156,33 @@ Rectangle {
             }
 
             QGCLabel {
+                text:       qsTr("VTX tunnel")
+                font.bold:  true
+            }
+
+            GridLayout {
+                columns:        2
+                columnSpacing:  _margins
+                rowSpacing:     ScreenTools.defaultFontPixelHeight / 2
+
+                QGCLabel { text: qsTr("IP tunnel over wfb-ng (10.5.0.0/24)") }
+                QGCCheckBox {
+                    checked:    WfbngManager.tunnelEnabled
+                    onClicked:  WfbngManager.tunnelEnabled = checked
+                }
+
+                QGCLabel { text: qsTr("Status") }
+                QGCLabel { text: WfbngManager.tunnelStatus; color: WfbngManager.tunnelActive ? qgcPal.colorGreen : qgcPal.text }
+            }
+
+            QGCLabel {
+                Layout.maximumWidth: ScreenTools.defaultFontPixelWidth * 60
+                wrapMode:   Text.WordWrap
+                color:      qgcPal.colorGrey
+                text:       qsTr("Makes the VTX reachable at 10.5.0.10 from this device (VTX settings page, adaptive-link uplink) through the wifibroadcast link, like PixelPilot. Android asks once for VPN permission; the tunnel is local only and routes nothing else.")
+            }
+
+            QGCLabel {
                 text:       qsTr("Diagnostics")
                 font.bold:  true
             }
